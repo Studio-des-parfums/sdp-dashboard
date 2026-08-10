@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { BarChart3, Shield, Plus, Trash2, Save, Settings, Mail, RotateCw, X as XIcon } from 'lucide-react'
 import { adminClient, type AdminProject, type ProjectNote, type AdminUser, type AdminRole, type UserProject } from '../api/adminClient'
 import { api } from '../api/client'
+import { useToast } from '../components/ui/Toast'
 import type { Project } from '../types'
 
 type Tab = 'projects' | 'users' | 'roles'
@@ -166,6 +167,7 @@ function ProjectsTab() {
 // ──────────────────── USERS TAB ────────────────────
 
 function UsersTab() {
+  const { showSuccess, showError } = useToast()
   const [users, setUsers] = useState<AdminUser[]>([])
   const [roles, setRoles] = useState<AdminRole[]>([])
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null)
@@ -176,6 +178,7 @@ function UsersTab() {
   const [newUser, setNewUser] = useState({ email: '', first_name: '', last_name: '', role_id: 0 })
   const [error, setError] = useState<string | null>(null)
   const [showRoles, setShowRoles] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -197,37 +200,65 @@ function UsersTab() {
 
   const saveEdit = async () => {
     if (!selectedUser || !editData) return
-    const updated = await adminClient.updateUser(selectedUser.id, editData)
-    setUsers(prev => prev.map(u => u.id === updated.id ? updated : u))
-    setSelectedUser(updated)
-    setEditing(false)
+    setSaving(true)
+    try {
+      const updated = await adminClient.updateUser(selectedUser.id, editData)
+      const projectsWithAccess = userProjects
+        .filter(p => p.slug !== 'sdp-core' && p.slug !== 'admin-portal' && p.permission && p.permission !== 'none')
+        .map(p => ({ project_id: p.id, permission: 'view' }))
+      const updatedProjects = await adminClient.updateUserProjects(selectedUser.id, projectsWithAccess)
+      setUsers(prev => prev.map(u => u.id === updated.id ? updated : u))
+      setSelectedUser(updated)
+      setUserProjects(updatedProjects)
+      setEditing(false)
+      showSuccess('Utilisateur mis à jour', `${updated.first_name} ${updated.last_name} — rôle ${updated.role_name}`)
+    } catch (err: any) {
+      showError('Échec de la mise à jour', err.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const saveNew = async () => {
     if (!newUser.email || !newUser.first_name || !newUser.last_name || !newUser.role_id) return
-    const created = await adminClient.createUser(newUser)
-    setUsers(prev => [...prev, created])
-    setShowNew(false)
-    setNewUser({ email: '', first_name: '', last_name: '', role_id: roles[0]?.id || 0 })
+    setSaving(true)
+    try {
+      const created = await adminClient.createUser(newUser)
+      setUsers(prev => [...prev, created])
+      setShowNew(false)
+      setNewUser({ email: '', first_name: '', last_name: '', role_id: roles[0]?.id || 0 })
+      showSuccess('Utilisateur créé', `${created.first_name} ${created.last_name}`)
+    } catch (err: any) {
+      showError('Échec de la création', err.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const resetPwd = async (email: string) => {
-    await adminClient.resetPassword(email)
-    alert('Mot de passe réinitialisé, email envoyé')
+    try {
+      await adminClient.resetPassword(email)
+      showSuccess('Mot de passe réinitialisé', `Un email a été envoyé à ${email}`)
+    } catch (err: any) {
+      showError('Échec de la réinitialisation', err.message)
+    }
   }
 
   const remove = async (id: number) => {
-    await adminClient.deleteUser(id)
-    setUsers(prev => prev.filter(u => u.id !== id))
-    setSelectedUser(null)
+    try {
+      await adminClient.deleteUser(id)
+      setUsers(prev => prev.filter(u => u.id !== id))
+      setSelectedUser(null)
+      showSuccess('Utilisateur supprimé')
+    } catch (err: any) {
+      showError('Échec de la suppression', err.message)
+    }
   }
 
-  const toggleProjectPermission = (projectId: number) => {
+  const toggleProjectAccess = (projectId: number) => {
     setUserProjects(prev => prev.map(p => {
       if (p.id !== projectId) return p
-      const levels = ['none', 'view', 'edit', 'admin'] as const
-      const idx = levels.indexOf((p.permission as any) || 'none')
-      return { ...p, permission: levels[(idx + 1) % levels.length] }
+      return { ...p, permission: p.permission && p.permission !== 'none' ? null : 'view' }
     }))
   }
 
@@ -358,20 +389,33 @@ function UsersTab() {
                 </div>
                 <div>
                   <label className="text-xs text-gray-600 mb-2 block">Accès projets</label>
+                  <p className="text-[11px] text-gray-500 mb-2">L'accueil est toujours accessible. La page Admin est réservée au rôle admin.</p>
                   <div className="space-y-1 max-h-40 overflow-y-auto">
-                    {userProjects.map(p => (
-                      <button key={p.id} onClick={() => toggleProjectPermission(p.id)} className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs bg-white hover:bg-gray-200 transition-colors">
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
-                        <span className="flex-1 text-left text-gray-600">{p.name}</span>
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] ${p.permission === 'admin' ? 'bg-purple-400/10 text-purple-600' : p.permission === 'edit' ? 'bg-blue-500/10 text-blue-600' : p.permission === 'view' ? 'bg-emerald-500/10 text-emerald-600' : 'text-gray-700'}`}>
-                          {p.permission || 'none'}
-                        </span>
-                      </button>
-                    ))}
+                    {userProjects.filter(p => p.slug !== 'sdp-core' && p.slug !== 'admin-portal').map(p => {
+                      const hasAccess = !!p.permission && p.permission !== 'none'
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => toggleProjectAccess(p.id)}
+                          className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs bg-white hover:bg-gray-200 transition-colors"
+                        >
+                          <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+                          <span className="flex-1 text-left text-gray-600">{p.name}</span>
+                          <span
+                            role="switch"
+                            aria-checked={hasAccess}
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 ${hasAccess ? 'bg-indigo-600' : 'bg-gray-300'}`}
+                          >
+                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${hasAccess ? 'translate-x-[18px]' : 'translate-x-1'}`} />
+                          </span>
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
                 <div className="flex gap-2 pt-2">
-                  <button onClick={saveEdit} className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm transition-colors"><Save size={14} /> Enregistrer</button>
+                  <button onClick={saveEdit} disabled={saving} className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50"><Save size={14} /> {saving ? 'Enregistrement...' : 'Enregistrer'}</button>
                   <button onClick={() => setEditing(false)} className="text-gray-500 hover:text-gray-900 px-4 py-2 rounded-lg text-sm transition-colors">Annuler</button>
                 </div>
               </div>
@@ -387,9 +431,9 @@ function UsersTab() {
                 <div>
                   <span className="text-xs text-gray-600">Accès projets</span>
                   <div className="flex flex-wrap gap-1 mt-1">
-                    {userProjects.filter(p => p.permission).length === 0 && <span className="text-xs text-gray-700">Aucun</span>}
-                    {userProjects.filter(p => p.permission).map(p => (
-                      <span key={p.id} className={`text-[10px] px-1.5 py-0.5 rounded ${p.permission === 'admin' ? 'bg-purple-400/10 text-purple-600' : p.permission === 'edit' ? 'bg-blue-500/10 text-blue-600' : 'bg-emerald-500/10 text-emerald-600'}`}>{p.name}</span>
+                    {userProjects.filter(p => p.slug !== 'sdp-core' && p.slug !== 'admin-portal' && p.permission && p.permission !== 'none').length === 0 && <span className="text-xs text-gray-700">Aucun</span>}
+                    {userProjects.filter(p => p.slug !== 'sdp-core' && p.slug !== 'admin-portal' && p.permission && p.permission !== 'none').map(p => (
+                      <span key={p.id} className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600">{p.name}</span>
                     ))}
                   </div>
                 </div>

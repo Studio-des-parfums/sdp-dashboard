@@ -2,9 +2,22 @@ import type { Project } from '../types'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
 
+function currentUserEmail(): string | null {
+  try {
+    const stored = localStorage.getItem('sdp_user')
+    return stored ? JSON.parse(stored).email ?? null : null
+  } catch {
+    return null
+  }
+}
+
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
+  const email = currentUserEmail()
   const res = await fetch(`${API}${url}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(email ? { 'x-user-email': email } : {}),
+    },
     ...options,
   })
   if (!res.ok) {

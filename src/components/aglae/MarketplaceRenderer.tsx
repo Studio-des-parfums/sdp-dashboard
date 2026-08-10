@@ -7,7 +7,6 @@ import GroupDetailsPage from '../../pages/aglae/GroupDetailsPage'
 import AnalysisPage from '../../pages/aglae/AnalysisPage'
 import OrdersPage from '../../pages/aglae/OrdersPage'
 import OrderDetailsPage from '../../pages/aglae/OrderDetailsPage'
-import TeamPage from '../../pages/aglae/TeamPage'
 import DevicesPage from '../../pages/aglae/DevicesPage'
 import CustomerReviewsPage from '../../pages/aglae/CustomerReviewsPage'
 
@@ -88,9 +87,6 @@ export default function MarketplaceRenderer({
         return <OrderDetailsPage orderId={selectedOrderId} onBack={onBackToOrders} />
       }
       return <OrdersPage onOpenOrder={onOpenOrder} />
-
-    case 'team':
-      return <TeamPage />
 
     case 'customer-reviews':
       return <CustomerReviewsPage onBack={onBackToClientsFromReviews ?? onBackToClients} />

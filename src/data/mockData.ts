@@ -22,31 +22,10 @@ export const mockDashboards: Record<string, Dashboard> = {
   'sdp-core': {
     id: 1, name: 'Accueil', slug: 'sdp-core', description: 'Plateforme principale de gestion des paiements', color: '#996F56', status: 'active', created_at: '2024-01-01T00:00:00Z',
     sections: [
-      { id: 'overview', name: 'Vue d\'ensemble', icon: 'LayoutDashboard', metricIds: [1, 2, 3, 4], chartIds: [1, 2, 3] },
-      { id: 'transactions', name: 'Transactions', icon: 'ArrowLeftRight', metricIds: [2], chartIds: [1] },
-      { id: 'revenue', name: 'Revenus', icon: 'Euro', metricIds: [4], chartIds: [2] },
+      { id: 'help', name: 'Besoin d\'aide ?', icon: 'Headphones', metricIds: [], chartIds: [] },
     ],
-    metrics: [
-      { id: 1, project_id: 1, name: 'Utilisateurs actifs', value: 12543, unit: '', type: 'number', change: 12.5 },
-      { id: 2, project_id: 1, name: 'Transactions/jour', value: 8432, unit: '', type: 'number', change: -3.2 },
-      { id: 3, project_id: 1, name: 'Taux de succès', value: 98.7, unit: '%', type: 'percentage', change: 0.5 },
-      { id: 4, project_id: 1, name: 'Revenu mensuel', value: 284500, unit: '€', type: 'currency', change: 8.1 },
-    ],
-    charts: [
-      { id: 1, title: 'Transactions (30j)', type: 'line', data: [
-        { label: '01/07', value: 8200 }, { label: '05/07', value: 8400 }, { label: '10/07', value: 7900 },
-        { label: '15/07', value: 8600 }, { label: '20/07', value: 9100 }, { label: '25/07', value: 8432 },
-      ]},
-      { id: 2, title: 'Répartition des revenus', type: 'pie', data: [
-        { label: 'Abonnements', value: 45 }, { label: 'Transactions', value: 30 },
-        { label: 'Publicité', value: 15 }, { label: 'Autres', value: 10 },
-      ]},
-      { id: 3, title: 'Utilisateurs par jour', type: 'area', data: [
-        { label: 'Lun', value: 11200 }, { label: 'Mar', value: 11800 }, { label: 'Mer', value: 12500 },
-        { label: 'Jeu', value: 12100 }, { label: 'Ven', value: 13500 }, { label: 'Sam', value: 9800 },
-        { label: 'Dim', value: 8700 },
-      ]},
-    ],
+    metrics: [],
+    charts: [],
   },
   'aglae': {
     id: 2, name: 'Aglae', slug: 'aglae', description: 'Place de marché B2B & OCR', color: '#f59e0b', status: 'active', created_at: '2024-01-01T00:00:00Z',
@@ -56,7 +35,6 @@ export const mockDashboards: Record<string, Dashboard> = {
       { id: 'groups', name: 'Groupes', icon: 'Users', metricIds: [], chartIds: [] },
       { id: 'analysis', name: 'Analyse', icon: 'BarChart3', metricIds: [], chartIds: [] },
       { id: 'orders', name: 'Commandes', icon: 'ShoppingCart', metricIds: [], chartIds: [] },
-      { id: 'team', name: 'Équipe', icon: 'Users', metricIds: [], chartIds: [] },
       { id: 'devices', name: 'Appareils', icon: 'Tablet', metricIds: [], chartIds: [] },
     ],
     metrics: [

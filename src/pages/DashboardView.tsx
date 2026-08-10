@@ -14,12 +14,13 @@ import { SettingsModal } from '../components/SettingsModal'
 import MarketplaceRenderer from '../components/aglae/MarketplaceRenderer'
 import NinnoRenderer from '../components/ninno/NinnoRenderer'
 import LyloRenderer from '../components/lylo/LyloRenderer'
+import HomePage from '../components/home/HomePage'
 import { mockUser, mockNotifications } from '../data/mockData'
 import type { Dashboard, Project } from '../types'
 
 const isUserMode = import.meta.env.VITE_USER_MODE === 'user'
 
-const MARKETPLACE_OCR_SECTIONS = new Set(['extraction', 'clients', 'groups', 'analysis', 'orders', 'team', 'devices', 'customer-reviews'])
+const MARKETPLACE_OCR_SECTIONS = new Set(['extraction', 'clients', 'groups', 'analysis', 'orders', 'devices', 'customer-reviews'])
 const NINNO_ADMIN_SECTIONS = new Set(['appearance', 'notes'])
 const LYLO_SECTIONS = new Set(['accueil', 'clients', 'equipe', 'formules', 'questionnaire', 'ingredients', 'imprimantes', 'analyses'])
 
@@ -42,8 +43,14 @@ export function DashboardView() {
 
   const [selectOpen, setSelectOpen] = useState(false)
 
+  // Rétrocompatibilité avec d'anciens liens utilisant les slugs pré-renommage (marketplace/analytics).
+  const normalizedSlug = slug === 'marketplace' ? 'aglae' : slug === 'analytics' ? 'lylo' : slug
+  const isHome = normalizedSlug === 'sdp-core'
+
+  const [projectsLoaded, setProjectsLoaded] = useState(false)
+
   useEffect(() => {
-    api.getProjects().then(setProjects).catch(() => {})
+    api.getProjects().then(setProjects).catch(() => {}).finally(() => setProjectsLoaded(true))
   }, [])
 
   useEffect(() => {
@@ -56,18 +63,21 @@ export function DashboardView() {
     api.getDashboard(slug)
       .then((d) => {
         setDashboard(d)
-        setActiveSection(d.sections[0]?.id || 'overview')
+        setActiveSection(isHome ? 'overview' : d.sections[0]?.id || 'overview')
       })
       .catch(() => setError('Impossible de charger le dashboard'))
       .finally(() => setLoading(false))
-  }, [slug])
+  }, [slug, isHome])
+
+  // Une fois la liste des projets autorisés chargée, on vérifie que le projet demandé
+  // (autre que l'accueil, toujours accessible) en fait bien partie.
+  const isAuthorized = isHome || !projectsLoaded || projects.some((p) => p.slug === normalizedSlug)
 
   const switchProject = useCallback((s: string) => {
     navigate(`/project/${s}`)
     setSelectOpen(false)
   }, [navigate])
 
-  const normalizedSlug = slug === 'marketplace' ? 'aglae' : slug === 'analytics' ? 'lylo' : slug
   const currentProject = projects.find((p) => p.slug === normalizedSlug)
   const isMarketplace = normalizedSlug === 'aglae'
   const isNinno = normalizedSlug === 'mobile-app'
@@ -183,8 +193,29 @@ export function DashboardView() {
             <div className="flex items-center justify-center h-64">
               <p className="text-red-700 text-sm">{error}</p>
             </div>
+          ) : !isAuthorized ? (
+            <div className="flex flex-col items-center justify-center h-64 gap-3 text-center">
+              <p className="text-gray-900 text-sm font-medium">Accès non autorisé</p>
+              <p className="text-gray-600 text-xs max-w-sm">
+                Vous n'avez pas accès à ce projet. Contactez un administrateur si vous pensez qu'il s'agit d'une erreur.
+              </p>
+              <button
+                onClick={() => navigate('/')}
+                className="text-xs text-indigo-600 hover:text-indigo-500 font-medium"
+              >
+                Retour à l'accueil
+              </button>
+            </div>
           ) : dashboard ? (
-            isLyloSections ? (
+            isHome ? (
+              <HomePage
+                section={activeSection}
+                projects={projects}
+                firstName={sdpUser?.first_name}
+                onOpenHelp={() => setActiveSection('help')}
+                onBackHome={() => setActiveSection('overview')}
+              />
+            ) : isLyloSections ? (
               <LyloRenderer section={activeSection} />
             ) : isNinnoAdminSection ? (
               <NinnoRenderer section={activeSection} />

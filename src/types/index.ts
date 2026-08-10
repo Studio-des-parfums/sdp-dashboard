@@ -6,6 +6,8 @@ export interface Project {
   color: string
   status: 'active' | 'inactive' | 'maintenance'
   created_at: string
+  /** Permission de l'utilisateur courant sur ce projet ('view' | 'edit' | 'admin'). Absent = mock/dev. */
+  user_permission?: 'view' | 'edit' | 'admin'
 }
 
 export interface Metric {
