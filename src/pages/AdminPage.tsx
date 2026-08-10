@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { BarChart3, Shield, Plus, Trash2, Save, Settings, Mail, RotateCw, X as XIcon } from 'lucide-react'
+import { BarChart3, Shield, Plus, Trash2, Save, Settings, Mail, RotateCw, X as XIcon, Headphones, Bug, HelpCircle, Lightbulb, MessageSquare } from 'lucide-react'
 import { adminClient, type AdminProject, type ProjectNote, type AdminUser, type AdminRole, type UserProject } from '../api/adminClient'
+import { ticketsClient, type Ticket, type TicketStatus } from '../api/ticketsClient'
 import { api } from '../api/client'
 import { useToast } from '../components/ui/Toast'
 import type { Project } from '../types'
 
-type Tab = 'projects' | 'users' | 'roles'
+type Tab = 'projects' | 'users' | 'roles' | 'tickets'
 
 const RESOURCES = ['dashboard', 'lylo', 'aglae', 'ninno', 'users'] as const
 const ACTIONS = ['view', 'edit'] as const
@@ -28,6 +29,7 @@ export default function AdminPage({ embedded, section, onSectionChange: _onSecti
         {activeTab === 'projects' && <ProjectsTab />}
         {activeTab === 'users' && <UsersTab />}
         {activeTab === 'roles' && <RolesTab />}
+        {activeTab === 'tickets' && <TicketsTab />}
       </div>
     )
   }
@@ -40,7 +42,7 @@ export default function AdminPage({ embedded, section, onSectionChange: _onSecti
           <span className="font-bold text-sm truncate text-gray-900">Administration</span>
         </div>
         <nav className="flex-1 py-2">
-          {([['projects', 'Projets'], ['users', 'Utilisateurs'], ['roles', 'Rôles']] as [Tab, string][]).map(([id, label]) => (
+          {([['projects', 'Projets'], ['users', 'Utilisateurs'], ['roles', 'Rôles'], ['tickets', 'Tickets']] as [Tab, string][]).map(([id, label]) => (
             <button
               key={id}
               onClick={() => setTab(id)}
@@ -58,6 +60,7 @@ export default function AdminPage({ embedded, section, onSectionChange: _onSecti
         {activeTab === 'projects' && <ProjectsTab />}
         {activeTab === 'users' && <UsersTab />}
         {activeTab === 'roles' && <RolesTab />}
+        {activeTab === 'tickets' && <TicketsTab />}
       </main>
     </div>
   )
@@ -618,6 +621,182 @@ function RolesTab() {
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+// ──────────────────── TICKETS TAB ────────────────────
+
+const TICKET_STATUSES: TicketStatus[] = ['Ouvert', 'En cours', 'Résolu', 'Fermé']
+
+const TICKET_CATEGORY_INFO: Record<string, { label: string; icon: typeof Bug }> = {
+  bug: { label: 'Bug / Problème', icon: Bug },
+  question: { label: 'Question', icon: HelpCircle },
+  feature: { label: 'Demande de fonctionnalité', icon: Lightbulb },
+  other: { label: 'Autre', icon: MessageSquare },
+}
+
+const ticketStatusStyle: Record<TicketStatus, string> = {
+  'Ouvert': 'bg-amber-500/10 text-amber-600',
+  'En cours': 'bg-blue-500/10 text-blue-600',
+  'Résolu': 'bg-emerald-500/10 text-emerald-600',
+  'Fermé': 'bg-gray-300/40 text-gray-600',
+}
+
+const ticketPriorityStyle: Record<string, string> = {
+  Basse: 'bg-gray-200/60 text-gray-600',
+  Moyenne: 'bg-amber-500/10 text-amber-600',
+  Haute: 'bg-red-500/10 text-red-600',
+}
+
+function TicketsTab() {
+  const { showSuccess, showError } = useToast()
+  const [tickets, setTickets] = useState<Ticket[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState<TicketStatus | 'all'>('all')
+  const [selected, setSelected] = useState<Ticket | null>(null)
+  const [updating, setUpdating] = useState(false)
+
+  useEffect(() => {
+    ticketsClient.getTickets()
+      .then(setTickets)
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const changeStatus = async (ticket: Ticket, status: TicketStatus) => {
+    setUpdating(true)
+    try {
+      const updated = await ticketsClient.updateStatus(ticket.id, status)
+      setTickets(prev => prev.map(t => t.id === updated.id ? updated : t))
+      setSelected(updated)
+      showSuccess('Statut mis à jour', `${updated.ticket_number} → ${updated.status}`)
+    } catch (err: any) {
+      showError('Échec de la mise à jour', err.message)
+    } finally {
+      setUpdating(false)
+    }
+  }
+
+  const filtered = statusFilter === 'all' ? tickets : tickets.filter(t => t.status === statusFilter)
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-xl font-bold text-gray-900">Tickets support</h1>
+        <select
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value as TicketStatus | 'all')}
+          className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
+        >
+          <option value="all">Tous les statuts</option>
+          {TICKET_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </div>
+
+      {loading && <p className="text-gray-600 text-sm text-center py-12">Chargement...</p>}
+      {error && <p className="text-red-700 text-sm text-center py-4 bg-red-500/10 rounded-lg mb-4">{error}</p>}
+      {!loading && !error && filtered.length === 0 && (
+        <p className="text-gray-600 text-sm text-center py-12">Aucun ticket</p>
+      )}
+
+      <div className="space-y-3">
+        {filtered.map(t => {
+          const catInfo = TICKET_CATEGORY_INFO[t.category] ?? TICKET_CATEGORY_INFO.other
+          const CatIcon = catInfo.icon
+          return (
+            <button
+              key={t.id}
+              onClick={() => setSelected(t)}
+              className="w-full flex items-start gap-4 bg-gray-100 rounded-xl border border-gray-200 p-4 text-left hover:border-gray-300 transition-colors"
+            >
+              <div className="w-9 h-9 rounded-lg bg-indigo-600/10 text-indigo-600 flex items-center justify-center shrink-0">
+                <CatIcon size={15} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span className="text-xs font-bold text-gray-900">{t.ticket_number}</span>
+                  <span className="text-xs text-gray-600">{catInfo.label}</span>
+                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-indigo-600/10 text-indigo-600">{t.project_name || 'SDP'}</span>
+                  <span className="text-[10px] text-gray-500 ml-auto">
+                    {new Date(t.created_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-900 font-medium truncate">{t.subject}</p>
+                <p className="text-xs text-gray-600 truncate mt-0.5">
+                  {t.user_first_name} {t.user_last_name} · {t.user_email}
+                </p>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${ticketPriorityStyle[t.priority]}`}>{t.priority}</span>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${ticketStatusStyle[t.status]}`}>{t.status}</span>
+                </div>
+              </div>
+            </button>
+          )
+        })}
+      </div>
+
+      {selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setSelected(null)}>
+          <div className="bg-gray-100 border border-gray-200 rounded-xl p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-indigo-600/10 text-indigo-600 flex items-center justify-center shrink-0">
+                  <Headphones size={18} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">{selected.ticket_number}</h2>
+                  <p className="text-xs text-gray-600">{TICKET_CATEGORY_INFO[selected.category]?.label ?? selected.category}</p>
+                </div>
+              </div>
+              <button onClick={() => setSelected(null)} className="text-gray-600 hover:text-gray-900">
+                <XIcon size={18} />
+              </button>
+            </div>
+
+            <div className="bg-white/50 rounded-lg p-4 space-y-3">
+              <div>
+                <span className="text-xs text-gray-600">Objet</span>
+                <p className="text-sm text-gray-900 font-medium">{selected.subject}</p>
+              </div>
+              <div>
+                <span className="text-xs text-gray-600">Description</span>
+                <p className="text-sm text-gray-900 whitespace-pre-wrap">{selected.description}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div><span className="text-gray-600">Projet</span><p className="text-gray-900">{selected.project_name || 'SDP'}</p></div>
+                <div><span className="text-gray-600">Priorité</span><p className="text-gray-900">{selected.priority}</p></div>
+                <div><span className="text-gray-600">Créé par</span><p className="text-gray-900">{selected.user_first_name} {selected.user_last_name}</p></div>
+                <div><span className="text-gray-600">Email de contact</span><p className="text-gray-900">{selected.contact_email || selected.user_email}</p></div>
+                <div className="col-span-2"><span className="text-gray-600">Créé le</span><p className="text-gray-900">{new Date(selected.created_at).toLocaleString('fr-FR')}</p></div>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs text-gray-600 mb-1.5 block">Statut</label>
+              <div className="flex flex-wrap gap-2">
+                {TICKET_STATUSES.map(s => (
+                  <button
+                    key={s}
+                    disabled={updating}
+                    onClick={() => changeStatus(selected, s)}
+                    className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 ${
+                      selected.status === s ? ticketStatusStyle[s] + ' ring-1 ring-inset ring-current' : 'bg-white hover:bg-gray-200 text-gray-600'
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <a href={`mailto:${selected.contact_email || selected.user_email}`} className="flex items-center justify-center gap-1.5 bg-white hover:bg-gray-200 text-gray-900 px-4 py-2 rounded-lg text-sm transition-colors">
+              <Mail size={14} /> Répondre par email
+            </a>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

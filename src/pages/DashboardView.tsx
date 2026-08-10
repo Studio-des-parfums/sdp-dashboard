@@ -16,6 +16,7 @@ import NinnoRenderer from '../components/ninno/NinnoRenderer'
 import LyloRenderer from '../components/lylo/LyloRenderer'
 import HomePage from '../components/home/HomePage'
 import { mockUser, mockNotifications } from '../data/mockData'
+import { ticketsClient } from '../api/ticketsClient'
 import type { Dashboard, Project } from '../types'
 
 const isUserMode = import.meta.env.VITE_USER_MODE === 'user'
@@ -35,6 +36,7 @@ export function DashboardView() {
   const [collapsed, setCollapsed] = useState(false)
   const [activeSection, setActiveSection] = useState('overview')
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [openTicketsCount, setOpenTicketsCount] = useState(0)
 
   const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null)
   const [selectedFormulaId, setSelectedFormulaId] = useState<number | null>(null)
@@ -52,6 +54,14 @@ export function DashboardView() {
   useEffect(() => {
     api.getProjects().then(setProjects).catch(() => {}).finally(() => setProjectsLoaded(true))
   }, [])
+
+  useEffect(() => {
+    if (sdpUser?.role_name !== 'admin') return
+    const loadCount = () => ticketsClient.getOpenCount().then(({ count }) => setOpenTicketsCount(count)).catch(() => {})
+    loadCount()
+    const id = setInterval(loadCount, 60000)
+    return () => clearInterval(id)
+  }, [sdpUser?.role_name])
 
   useEffect(() => {
     if (!slug) return
@@ -106,6 +116,7 @@ export function DashboardView() {
         userMode={isUserMode}
         onOpenSettings={() => setSettingsOpen(true)}
         onLogout={() => { logout(); navigate('/login') }}
+        badges={isAdmin && openTicketsCount > 0 ? { tickets: openTicketsCount } : undefined}
       />
       <main className="flex-1 overflow-y-auto">
         <div className="h-14 border-b border-gray-200 flex items-center px-6 gap-4">
@@ -212,8 +223,11 @@ export function DashboardView() {
                 section={activeSection}
                 projects={projects}
                 firstName={sdpUser?.first_name}
+                isAdmin={sdpUser?.role_name === 'admin'}
+                openTicketsCount={openTicketsCount}
                 onOpenHelp={() => setActiveSection('help')}
                 onBackHome={() => setActiveSection('overview')}
+                onOpenAdminTickets={() => navigate('/project/admin-portal')}
               />
             ) : isLyloSections ? (
               <LyloRenderer section={activeSection} />

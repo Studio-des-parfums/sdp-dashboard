@@ -23,6 +23,7 @@ interface SectionsMode {
   userMode?: boolean
   onOpenSettings?: () => void
   onLogout?: () => void
+  badges?: Record<string, number>
 }
 
 type SidebarProps = ProjectsMode | SectionsMode
@@ -67,7 +68,7 @@ export function Sidebar(props: SidebarProps) {
     )
   }
 
-  const { sections, activeSection, onSectionChange, collapsed, userMode, onOpenSettings, onLogout } = props
+  const { sections, activeSection, onSectionChange, collapsed, userMode, onOpenSettings, onLogout, badges } = props
   return (
     <aside className={`bg-gray-100 border-r border-gray-200 flex flex-col transition-all duration-200 ${collapsed ? 'w-16' : 'w-60'}`}>
         <div className="h-14 flex items-center gap-2 px-4 border-b border-gray-200">
@@ -79,15 +80,21 @@ export function Sidebar(props: SidebarProps) {
         {sections.map((s) => {
           const Icon = iconMap[s.icon] || LayoutDashboard
           const isActive = activeSection === s.id
+          const badge = badges?.[s.id]
           return (
             <button
               key={s.id}
               onClick={() => onSectionChange(s.id)}
-              className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left ${isActive ? 'bg-indigo-600/10 text-indigo-600 border-r-2 border-indigo-400' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}
+              className={`relative w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left ${isActive ? 'bg-indigo-600/10 text-indigo-600 border-r-2 border-indigo-400' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}
               title={collapsed ? s.name : undefined}
             >
               <Icon size={18} className="shrink-0" />
               {!collapsed && <span className="truncate">{s.name}</span>}
+              {!!badge && (
+                <span className={`shrink-0 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 ${collapsed ? 'absolute top-1.5 right-1.5' : 'ml-auto'}`}>
+                  {badge > 99 ? '99+' : badge}
+                </span>
+              )}
             </button>
           )
         })}
