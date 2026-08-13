@@ -16,6 +16,7 @@ export const mockProjects: Project[] = [
   { id: 3, name: 'Ninno', slug: 'mobile-app', description: 'Application mobile clients', color: '#10b981', status: 'active', created_at: '2024-01-01T00:00:00Z' },
   { id: 4, name: 'Lylo', slug: 'lylo', description: 'Back-office Lylo', color: '#996f56', status: 'active', created_at: '2024-01-01T00:00:00Z' },
   { id: 5, name: 'Admin Portal', slug: 'admin-portal', description: "Portail d'administration interne", color: '#8b5cf6', status: 'maintenance', created_at: '2024-01-01T00:00:00Z' },
+  { id: 6, name: 'Nono', slug: 'nono', description: 'Backoffice du robot magasin', color: '#0ea5e9', status: 'active', created_at: '2024-01-01T00:00:00Z' },
 ]
 
 export const mockDashboards: Record<string, Dashboard> = {
@@ -74,6 +75,17 @@ export const mockDashboards: Record<string, Dashboard> = {
       { id: 'ingredients', name: 'Ingrédients', icon: 'Beaker', metricIds: [], chartIds: [] },
       { id: 'imprimantes', name: 'Imprimantes', icon: 'Printer', metricIds: [], chartIds: [] },
       { id: 'analyses', name: 'Analyses', icon: 'BarChart3', metricIds: [], chartIds: [] },
+    ],
+    metrics: [],
+    charts: [],
+  },
+  'nono': {
+    id: 6, name: 'Nono', slug: 'nono', description: 'Backoffice du robot magasin', color: '#0ea5e9', status: 'active', created_at: '2024-01-01T00:00:00Z',
+    sections: [
+      { id: 'locations', name: 'Lieux', icon: 'Bot', metricIds: [], chartIds: [] },
+      { id: 'catalogs', name: 'Catalogues', icon: 'ShoppingCart', metricIds: [], chartIds: [] },
+      { id: 'new-products', name: 'Nouveautés', icon: 'Store', metricIds: [], chartIds: [] },
+      { id: 'store-info', name: 'Informations', icon: 'FileText', metricIds: [], chartIds: [] },
     ],
     metrics: [],
     charts: [],

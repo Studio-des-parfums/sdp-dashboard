@@ -28,7 +28,8 @@
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0",
     "recharts": "^2.14.1",
-    "resend": "^6.18.0"
+    "resend": "^6.18.0",
+    "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

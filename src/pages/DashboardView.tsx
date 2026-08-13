@@ -5,6 +5,8 @@ import { api } from '../api/client'
 import { Sidebar } from '../components/Sidebar'
 import AdminPage from './AdminPage'
 import { useAuth } from '../contexts/AuthContext'
+import { NotificationsButton } from '../components/NotificationsButton'
+import { MessagingButton } from '../components/messaging/MessagingButton'
 
 
 import { MetricCard } from '../components/MetricCard'
@@ -14,6 +16,7 @@ import { SettingsModal } from '../components/SettingsModal'
 import MarketplaceRenderer from '../components/aglae/MarketplaceRenderer'
 import NinnoRenderer from '../components/ninno/NinnoRenderer'
 import LyloRenderer from '../components/lylo/LyloRenderer'
+import NonoRenderer from '../components/nono/NonoRenderer'
 import HomePage from '../components/home/HomePage'
 import { mockUser, mockNotifications } from '../data/mockData'
 import { ticketsClient } from '../api/ticketsClient'
@@ -92,6 +95,7 @@ export function DashboardView() {
   const isMarketplace = normalizedSlug === 'aglae'
   const isNinno = normalizedSlug === 'mobile-app'
   const isLylo = normalizedSlug === 'lylo'
+  const isNono = normalizedSlug === 'nono'
   const isAdmin = normalizedSlug === 'admin-portal'
   const isOcrSection = isMarketplace && MARKETPLACE_OCR_SECTIONS.has(activeSection)
   const isNinnoAdminSection = isNinno && NINNO_ADMIN_SECTIONS.has(activeSection)
@@ -171,6 +175,10 @@ export function DashboardView() {
               </>
             )}
           </div>
+
+          <NotificationsButton />
+          <MessagingButton />
+
           <button
             onClick={() => { logout(); navigate('/login'); }}
             className="text-gray-600 hover:text-red-700 transition-colors"
@@ -231,6 +239,8 @@ export function DashboardView() {
               />
             ) : isLyloSections ? (
               <LyloRenderer section={activeSection} />
+            ) : isNono ? (
+              <NonoRenderer section={activeSection} />
             ) : isNinnoAdminSection ? (
               <NinnoRenderer section={activeSection} />
             ) : isAdmin ? (

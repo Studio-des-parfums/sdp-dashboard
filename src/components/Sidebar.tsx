@@ -1,11 +1,11 @@
 import { NavLink } from 'react-router-dom'
-import { Shield, BarChart3, LayoutDashboard, ArrowLeftRight, Euro, ShoppingCart, Store, Users, Activity, Database, Server, BarChart, Headphones, FileText, Tablet, Image, StickyNote, Settings, LogOut, LucideIcon } from 'lucide-react'
+import { Shield, BarChart3, LayoutDashboard, ArrowLeftRight, Euro, ShoppingCart, Store, Users, Activity, Database, Server, BarChart, Headphones, FileText, Tablet, Image, StickyNote, Bot, Settings, LogOut, LucideIcon } from 'lucide-react'
 import type { DashboardSection, Project } from '../types'
 
 const iconMap: Record<string, LucideIcon> = {
   Shield, LayoutDashboard, ArrowLeftRight, Euro, ShoppingCart, Store,
   Users, Activity, Database, Server, BarChart3, BarChart, Headphones,
-  FileText, Tablet, Image, StickyNote,
+  FileText, Tablet, Image, StickyNote, Bot,
 }
 
 interface ProjectsMode {

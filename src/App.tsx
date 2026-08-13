@@ -1,12 +1,15 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { GoogleOAuthProvider } from '@react-oauth/google'
 import { AuthProvider } from './contexts/AuthContext'
+import { MessagingProvider } from './contexts/MessagingContext'
 import { ToastProvider } from './components/ui/Toast'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { DashboardView } from './pages/DashboardView'
 import LoginPage from './pages/LoginPage'
 import { AuthGuard } from './components/AuthGuard'
 import { UpdateManager } from './components/UpdateManager'
+import { MessagingPanel } from './components/messaging/MessagingPanel'
+import { MessageToastStack } from './components/messaging/MessageToastStack'
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
 
@@ -26,8 +29,12 @@ export default function App() {
     <ErrorBoundary>
       <AuthProvider>
         <ToastProvider>
-          {content}
-          <UpdateManager />
+          <MessagingProvider>
+            {content}
+            <MessagingPanel />
+            <MessageToastStack />
+            <UpdateManager />
+          </MessagingProvider>
         </ToastProvider>
       </AuthProvider>
     </ErrorBoundary>

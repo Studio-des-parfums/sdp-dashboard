@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, ArrowUpLeft, Bell, Bug, CheckCircle2, Headphones, HelpCircle, Inbox, LifeBuoy, Lightbulb, MessageSquare, Rocket, Send, ShieldCheck, Sparkles, Zap } from 'lucide-react'
+import { ArrowRight, ArrowUpLeft, Bell, Bug, CheckCircle2, Headphones, HelpCircle, Inbox, LifeBuoy, Lightbulb, MessageSquare, Send, Sparkles } from 'lucide-react'
 import { useToast } from '../ui/Toast'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
@@ -19,13 +19,6 @@ interface HomePageProps {
   onBackHome: () => void
   onOpenAdminTickets?: () => void
 }
-
-const FEATURES = [
-  { icon: ShieldCheck, title: 'Sécurité renforcée', description: 'Authentification sécurisée et accès contrôlés à chaque espace de la plateforme.' },
-  { icon: Zap, title: 'Rapidité', description: 'Des interfaces réactives et optimisées pour aller à l\'essentiel.' },
-  { icon: Sparkles, title: 'Expérience moderne', description: 'Un design épuré et cohérent sur l\'ensemble de vos applications.' },
-  { icon: Rocket, title: 'Évolutif', description: 'Une plateforme pensée pour accompagner la croissance de vos projets.' },
-]
 
 const CATEGORIES = [
   { id: 'bug', label: 'Bug / Problème', icon: Bug },
@@ -73,7 +66,7 @@ export default function HomePage({ section, projects, firstName, isAdmin, openTi
           <Button
             onClick={() => document.getElementById('solutions')?.scrollIntoView({ behavior: 'smooth' })}
           >
-            Découvrir nos solutions
+            Mes projets
             <ArrowRight size={14} />
           </Button>
           <Button variant="secondary" onClick={onOpenHelp}>
@@ -104,7 +97,7 @@ export default function HomePage({ section, projects, firstName, isAdmin, openTi
       {!isAdmin && <NotificationsPanel />}
 
       <section id="solutions" className="mb-16 scroll-mt-24">
-        <h2 className="text-xl font-bold text-gray-900 mb-2">Nos solutions</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">Projets</h2>
         <p className="text-sm text-gray-600 mb-6">
           Accédez à chacun de vos espaces directement depuis la plateforme.
         </p>
@@ -131,24 +124,6 @@ export default function HomePage({ section, projects, firstName, isAdmin, openTi
               </span>
             </button>
           ))}
-        </div>
-      </section>
-
-      <section className="mb-16">
-        <h2 className="text-xl font-bold text-gray-900 mb-6">Pourquoi SDP ?</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {FEATURES.map((f) => {
-            const Icon = f.icon
-            return (
-              <div key={f.title} className="bg-gray-100 rounded-xl border border-gray-200 p-5">
-                <div className="w-9 h-9 rounded-lg bg-indigo-600/10 text-indigo-600 flex items-center justify-center mb-3">
-                  <Icon size={16} />
-                </div>
-                <h3 className="text-sm font-semibold text-gray-900 mb-1">{f.title}</h3>
-                <p className="text-xs text-gray-600 leading-relaxed">{f.description}</p>
-              </div>
-            )
-          })}
         </div>
       </section>
 
