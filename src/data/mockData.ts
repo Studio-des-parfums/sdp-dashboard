@@ -72,7 +72,6 @@ export const mockDashboards: Record<string, Dashboard> = {
       { id: 'equipe', name: 'Équipe', icon: 'Users', metricIds: [], chartIds: [] },
       { id: 'formules', name: 'Formules', icon: 'FlaskConical', metricIds: [], chartIds: [] },
       { id: 'questionnaire', name: 'Questionnaire', icon: 'ClipboardList', metricIds: [], chartIds: [] },
-      { id: 'ingredients', name: 'Ingrédients', icon: 'Beaker', metricIds: [], chartIds: [] },
       { id: 'imprimantes', name: 'Imprimantes', icon: 'Printer', metricIds: [], chartIds: [] },
       { id: 'analyses', name: 'Analyses', icon: 'BarChart3', metricIds: [], chartIds: [] },
     ],

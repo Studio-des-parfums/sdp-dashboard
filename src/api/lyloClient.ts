@@ -1,12 +1,7 @@
 const BASE_URL = (import.meta.env.VITE_LYLO_API_URL || 'https://lylo-back-production.up.railway.app').replace(/\/+$/, '')
-const SDP_API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/+$/, '')
-
-function ingredientsUrl(path: string) {
-  return `${SDP_API_URL}${path}`
-}
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const url = /^https?:\/\//.test(path) ? path : `${BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`
+  const url = `${BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`
   const res = await fetch(url, {
     ...init,
     headers: {
@@ -50,11 +45,9 @@ export const lyloApi = {
   getFormulasByRef: (ref: string) => apiFetch<unknown>(`/api/formulas?reference=${encodeURIComponent(ref)}`),
   sendFormulaEmail: (ref: string, email: string) => apiFetch(`/api/formulas/${encodeURIComponent(ref)}/send-mail`, { method: 'POST', body: JSON.stringify({ email }) }),
 
-  // Les ingrédients sont stockés dans la base générale du dashboard SDP (partagée entre
-  // projets), pas dans la base Lylo — d'où l'URL absolue plutôt que le BASE_URL du fichier.
-  getIngredients: () => apiFetch<unknown>(ingredientsUrl('/ingredients')).then(d => normalizeArray<import('../types/lylo').LyloIngredient>(d)),
-  createIngredient: (data: Record<string, unknown>) => apiFetch(ingredientsUrl('/ingredients'), { method: 'POST', body: JSON.stringify(data) }),
-  updateIngredient: (id: number, data: Record<string, unknown>) => apiFetch(ingredientsUrl(`/ingredients/${id}`), { method: 'PATCH', body: JSON.stringify(data) }),
+  // Les notes olfactives (ex-ingrédients) sont désormais gérées depuis Admin > Notes
+  // olfactives (src/pages/admin/AdminNotesPage.tsx), qui appelle directement l'API du
+  // dashboard SDP — ce client Lylo n'en a plus la responsabilité.
 
   getQuestionGroups: () => apiFetch<unknown>('/catalog/question-groups'),
   getQuestions: (params?: string) => apiFetch<unknown>(`/catalog/questions${params ? `?${params}` : ''}`),

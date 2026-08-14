@@ -5,8 +5,9 @@ import { ticketsClient, type Ticket, type TicketStatus } from '../api/ticketsCli
 import { api } from '../api/client'
 import { useToast } from '../components/ui/Toast'
 import type { Project } from '../types'
+import AdminNotesPage from './admin/AdminNotesPage'
 
-type Tab = 'projects' | 'users' | 'roles' | 'tickets'
+type Tab = 'projects' | 'users' | 'roles' | 'tickets' | 'notes'
 
 const RESOURCES = ['dashboard', 'lylo', 'aglae', 'ninno', 'users'] as const
 const ACTIONS = ['view', 'edit'] as const
@@ -30,6 +31,7 @@ export default function AdminPage({ embedded, section, onSectionChange: _onSecti
         {activeTab === 'users' && <UsersTab />}
         {activeTab === 'roles' && <RolesTab />}
         {activeTab === 'tickets' && <TicketsTab />}
+        {activeTab === 'notes' && <AdminNotesPage />}
       </div>
     )
   }
@@ -42,7 +44,7 @@ export default function AdminPage({ embedded, section, onSectionChange: _onSecti
           <span className="font-bold text-sm truncate text-gray-900">Administration</span>
         </div>
         <nav className="flex-1 py-2">
-          {([['projects', 'Projets'], ['users', 'Utilisateurs'], ['roles', 'Rôles'], ['tickets', 'Tickets']] as [Tab, string][]).map(([id, label]) => (
+          {([['projects', 'Projets'], ['users', 'Utilisateurs'], ['roles', 'Rôles'], ['tickets', 'Tickets'], ['notes', 'Notes olfactives']] as [Tab, string][]).map(([id, label]) => (
             <button
               key={id}
               onClick={() => setTab(id)}
@@ -61,6 +63,7 @@ export default function AdminPage({ embedded, section, onSectionChange: _onSecti
         {activeTab === 'users' && <UsersTab />}
         {activeTab === 'roles' && <RolesTab />}
         {activeTab === 'tickets' && <TicketsTab />}
+        {activeTab === 'notes' && <AdminNotesPage />}
       </main>
     </div>
   )

@@ -26,7 +26,7 @@ const isUserMode = import.meta.env.VITE_USER_MODE === 'user'
 
 const MARKETPLACE_OCR_SECTIONS = new Set(['extraction', 'clients', 'groups', 'analysis', 'orders', 'devices', 'customer-reviews'])
 const NINNO_ADMIN_SECTIONS = new Set(['appearance', 'notes'])
-const LYLO_SECTIONS = new Set(['accueil', 'clients', 'equipe', 'formules', 'questionnaire', 'ingredients', 'imprimantes', 'analyses'])
+const LYLO_SECTIONS = new Set(['accueil', 'clients', 'equipe', 'formules', 'questionnaire', 'imprimantes', 'analyses'])
 
 export function DashboardView() {
   const { slug } = useParams<{ slug: string }>()
