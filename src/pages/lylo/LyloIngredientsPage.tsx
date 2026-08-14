@@ -13,6 +13,7 @@ type Ingredient = {
   description: string | null;
   intensity: string | null;
   allergens: string[] | null;
+  box_sets: string[] | null;
   is_active: boolean;
 };
 
@@ -37,11 +38,106 @@ function emptyForm() {
     description: "",
     intensity: "",
     allergens: "",
+    box_sets: [] as string[],
   };
 }
 
+/**
+ * Champ "tags" : on tape un nom puis Entrée pour l'ajouter, chaque tag affiché
+ * au-dessus avec une croix pour le supprimer. Propose en autocomplete les noms
+ * déjà utilisés ailleurs (évite les doublons/fautes de frappe), et permet d'en
+ * saisir un nouveau si non trouvé.
+ */
+function TagInput({
+  values,
+  onChange,
+  suggestions,
+  placeholder,
+}: {
+  values: string[];
+  onChange: (values: string[]) => void;
+  suggestions: string[];
+  placeholder?: string;
+}) {
+  const [draft, setDraft] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  function addTag(raw: string) {
+    const tag = raw.trim();
+    if (!tag) return;
+    if (!values.some((v) => v.toLowerCase() === tag.toLowerCase())) {
+      onChange([...values, tag]);
+    }
+    setDraft("");
+    setShowSuggestions(false);
+  }
+
+  function removeTag(tag: string) {
+    onChange(values.filter((v) => v !== tag));
+  }
+
+  const filteredSuggestions = suggestions.filter(
+    (s) =>
+      !values.some((v) => v.toLowerCase() === s.toLowerCase()) &&
+      s.toLowerCase().includes(draft.trim().toLowerCase())
+  );
+
+  return (
+    <div className="relative">
+      {values.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-1">
+          {values.map((tag) => (
+            <span key={tag} className="flex items-center gap-1 rounded-full bg-gray-200/60 px-2 py-0.5 text-xs text-gray-700">
+              {tag}
+              <button
+                type="button"
+                onClick={() => removeTag(tag)}
+                className="text-gray-500 hover:text-gray-900"
+                aria-label={`Retirer ${tag}`}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <Input
+        value={draft}
+        onChange={(e) => { setDraft(e.target.value); setShowSuggestions(true); }}
+        onFocus={() => setShowSuggestions(true)}
+        onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            addTag(draft);
+          } else if (e.key === "Backspace" && draft === "" && values.length > 0) {
+            removeTag(values[values.length - 1]);
+          }
+        }}
+        placeholder={placeholder}
+      />
+      {showSuggestions && filteredSuggestions.length > 0 && (
+        <div className="absolute z-10 mt-1 max-h-40 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-md">
+          {filteredSuggestions.map((s) => (
+            <button
+              type="button"
+              key={s}
+              onMouseDown={(e) => { e.preventDefault(); addTag(s); }}
+              className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function getBackendBaseUrl() {
-  const base = (import.meta.env.VITE_LYLO_API_URL || 'https://lylo-back-production.up.railway.app').trim();
+  // Les ingrédients sont désormais stockés dans la base générale du dashboard SDP
+  // (partagés entre tous les projets), et non plus dans la base propre à Lylo.
+  const base = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').trim();
   return base ? base.replace(/\/+$/, "") : "";
 }
 
@@ -86,7 +182,7 @@ export default function LyloIngredientsPage() {
       const params = new URLSearchParams({ active_only: "false" });
       if (langFilter) params.set("language", langFilter);
       if (typeFilter) params.set("type", typeFilter);
-      const data = await apiFetch(`/catalog/ingredients?${params}`);
+      const data = await apiFetch(`/ingredients?${params}`);
       setIngredients(Array.isArray(data) ? (data as Ingredient[]) : []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur inconnue");
@@ -110,11 +206,20 @@ export default function LyloIngredientsPage() {
     return parts.length > 0 ? parts : null;
   }
 
+  // Coffrets déjà utilisés sur d'autres ingrédients, proposés en autocomplete.
+  const boxSetSuggestions = useMemo(() => {
+    const set = new Set<string>();
+    for (const ing of ingredients) {
+      for (const bs of ing.box_sets ?? []) set.add(bs);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [ingredients]);
+
   async function createIngredient() {
     if (!createForm.name.trim()) return;
     setIsBusy(true);
     try {
-      await apiFetch("/catalog/ingredients", {
+      await apiFetch("/ingredients", {
         method: "POST",
         body: JSON.stringify({
           name: createForm.name.trim(),
@@ -124,6 +229,7 @@ export default function LyloIngredientsPage() {
           description: createForm.description.trim() || null,
           intensity: createForm.intensity.trim() || null,
           allergens: parseAllergens(createForm.allergens),
+          box_sets: createForm.box_sets.length > 0 ? createForm.box_sets : null,
         }),
       });
       setIsCreateOpen(false);
@@ -146,6 +252,7 @@ export default function LyloIngredientsPage() {
       description: ing.description ?? "",
       intensity: ing.intensity ?? "",
       allergens: ing.allergens ? ing.allergens.join(", ") : "",
+      box_sets: ing.box_sets ?? [],
     });
     setIsDetailOpen(true);
   }
@@ -154,7 +261,7 @@ export default function LyloIngredientsPage() {
     if (!selected || !editForm.name.trim()) return;
     setIsBusy(true);
     try {
-      await apiFetch(`/catalog/ingredients/${selected.id}`, {
+      await apiFetch(`/ingredients/${selected.id}`, {
         method: "PATCH",
         body: JSON.stringify({
           name: editForm.name.trim(),
@@ -165,6 +272,7 @@ export default function LyloIngredientsPage() {
           intensity: editForm.intensity.trim() || null,
           allergens: parseAllergens(editForm.allergens),
           is_active: selected.is_active,
+          box_sets: editForm.box_sets.length > 0 ? editForm.box_sets : null,
         }),
       });
       setIsDetailOpen(false);
@@ -180,7 +288,7 @@ export default function LyloIngredientsPage() {
   async function toggleActive(ing: Ingredient) {
     setIsBusy(true);
     try {
-      await apiFetch(`/catalog/ingredients/${ing.id}`, {
+      await apiFetch(`/ingredients/${ing.id}`, {
         method: "PATCH",
         body: JSON.stringify({ is_active: !ing.is_active }),
       });
@@ -197,7 +305,7 @@ export default function LyloIngredientsPage() {
     if (!window.confirm(`Supprimer l'ingrédient "${selected.name}" ?`)) return;
     setIsBusy(true);
     try {
-      await apiFetch(`/catalog/ingredients/${selected.id}`, { method: "DELETE" });
+      await apiFetch(`/ingredients/${selected.id}`, { method: "DELETE" });
       setIsDetailOpen(false);
       setSelected(null);
       await refresh();
@@ -255,6 +363,17 @@ export default function LyloIngredientsPage() {
             Allergènes <span className="text-gray-700 font-normal">(séparés par des virgules — laisser vide = IA raisonne seule)</span>
           </Label>
           <Input id="ing_allergens" value={form.allergens} onChange={(e) => setForm({ ...form, allergens: e.target.value })} placeholder="limonène, linalool, géraniol…" />
+        </div>
+        <div className="space-y-2 md:col-span-2">
+          <Label htmlFor="ing_box_sets">
+            Coffrets <span className="text-gray-700 font-normal">(Entrée pour ajouter)</span>
+          </Label>
+          <TagInput
+            values={form.box_sets}
+            onChange={(box_sets) => setForm({ ...form, box_sets })}
+            suggestions={boxSetSuggestions}
+            placeholder="Découverte, Prestige…"
+          />
         </div>
       </div>
     );
@@ -315,13 +434,14 @@ export default function LyloIngredientsPage() {
                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Catégorie</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Intensité</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Allergènes</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Coffrets</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Statut</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-sm text-gray-500">
+                  <td colSpan={7} className="px-6 py-10 text-center text-sm text-gray-500">
                     {isBusy ? "Chargement..." : "Aucun ingrédient."}
                   </td>
                 </tr>
@@ -344,6 +464,19 @@ export default function LyloIngredientsPage() {
                       <span className="text-orange-600">{ing.allergens.length} renseigné{ing.allergens.length > 1 ? "s" : ""}</span>
                     ) : (
                       <span className="text-gray-700 italic">IA raisonne</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    {ing.box_sets && ing.box_sets.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {ing.box_sets.map((bs) => (
+                          <span key={bs} className="rounded-full bg-gray-200/60 px-2 py-0.5 text-xs text-gray-700">
+                            {bs}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-gray-700 italic">—</span>
                     )}
                   </td>
                   <td className="px-6 py-4">
