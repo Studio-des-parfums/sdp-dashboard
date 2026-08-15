@@ -3,18 +3,24 @@ import { Plus, Trash2, X as XIcon } from 'lucide-react'
 
 // Notes olfactives : référentiel partagé entre tous les projets (Lylo et les suivants),
 // stocké dans la base générale du dashboard SDP plutôt que dans une base propre à un projet.
+// Une note = une seule ligne, avec un nom par langue (translations) plutôt qu'une ligne
+// dupliquée par langue — évite de créer deux fois la même note pour FR et EN.
+
+const LANGUAGES: { code: string; label: string }[] = [
+  { code: 'fr', label: 'Français' },
+  { code: 'en', label: 'English' },
+]
 
 type Note = {
   id: number
-  name: string
   type: 'top' | 'heart' | 'base'
   category: string | null
-  language: string
   description: string | null
   intensity: string | null
   allergens: string[] | null
   box_sets: string[] | null
   is_active: boolean
+  translations: Record<string, string>
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -31,15 +37,20 @@ const TYPE_STYLE: Record<string, string> = {
 
 function emptyForm() {
   return {
-    name: '',
+    translations: Object.fromEntries(LANGUAGES.map((l) => [l.code, ''])) as Record<string, string>,
     type: 'top' as 'top' | 'heart' | 'base',
     category: '',
-    language: 'fr',
     description: '',
     intensity: '',
     allergens: '',
     box_sets: [] as string[],
   }
+}
+
+// Nom à afficher pour une note : la traduction française en priorité, sinon la
+// première langue disponible.
+function displayName(note: Note): string {
+  return note.translations.fr || Object.values(note.translations)[0] || '(sans nom)'
 }
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
@@ -141,7 +152,6 @@ export default function AdminNotesPage() {
   const [isBusy, setIsBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
-  const [langFilter, setLangFilter] = useState('fr')
   const [typeFilter, setTypeFilter] = useState('')
 
   const [isCreateOpen, setIsCreateOpen] = useState(false)
@@ -155,7 +165,6 @@ export default function AdminNotesPage() {
     setIsBusy(true)
     try {
       const params = new URLSearchParams({ active_only: 'false' })
-      if (langFilter) params.set('language', langFilter)
       if (typeFilter) params.set('type', typeFilter)
       const data = await apiFetch(`/ingredients?${params}`)
       setNotes(Array.isArray(data) ? (data as Note[]) : [])
@@ -166,12 +175,15 @@ export default function AdminNotesPage() {
     }
   }
 
-  useEffect(() => { void refresh() }, [langFilter, typeFilter])
+  useEffect(() => { void refresh() }, [typeFilter])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     if (!q) return notes
-    return notes.filter((n) => `${n.name} ${n.category ?? ''} ${n.description ?? ''}`.toLowerCase().includes(q))
+    return notes.filter((n) => {
+      const names = Object.values(n.translations).join(' ')
+      return `${names} ${n.category ?? ''} ${n.description ?? ''}`.toLowerCase().includes(q)
+    })
   }, [notes, search])
 
   const boxSetSuggestions = useMemo(() => {
@@ -185,17 +197,20 @@ export default function AdminNotesPage() {
     return parts.length > 0 ? parts : null
   }
 
+  function hasAtLeastOneName(translations: Record<string, string>) {
+    return Object.values(translations).some((v) => v.trim())
+  }
+
   async function createNote() {
-    if (!createForm.name.trim()) return
+    if (!hasAtLeastOneName(createForm.translations)) return
     setIsBusy(true)
     try {
       await apiFetch('/ingredients', {
         method: 'POST',
         body: JSON.stringify({
-          name: createForm.name.trim(),
+          translations: createForm.translations,
           type: createForm.type,
           category: createForm.category.trim() || null,
-          language: createForm.language,
           description: createForm.description.trim() || null,
           intensity: createForm.intensity.trim() || null,
           allergens: parseAllergens(createForm.allergens),
@@ -215,10 +230,9 @@ export default function AdminNotesPage() {
   function openDetail(note: Note) {
     setSelected(note)
     setEditForm({
-      name: note.name,
+      translations: { ...Object.fromEntries(LANGUAGES.map((l) => [l.code, ''])), ...note.translations },
       type: note.type,
       category: note.category ?? '',
-      language: note.language,
       description: note.description ?? '',
       intensity: note.intensity ?? '',
       allergens: note.allergens ? note.allergens.join(', ') : '',
@@ -227,16 +241,15 @@ export default function AdminNotesPage() {
   }
 
   async function saveDetail() {
-    if (!selected || !editForm.name.trim()) return
+    if (!selected || !hasAtLeastOneName(editForm.translations)) return
     setIsBusy(true)
     try {
       await apiFetch(`/ingredients/${selected.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
-          name: editForm.name.trim(),
+          translations: editForm.translations,
           type: editForm.type,
           category: editForm.category.trim() || null,
-          language: editForm.language,
           description: editForm.description.trim() || null,
           intensity: editForm.intensity.trim() || null,
           allergens: parseAllergens(editForm.allergens),
@@ -267,7 +280,7 @@ export default function AdminNotesPage() {
 
   async function deleteNote() {
     if (!selected) return
-    if (!window.confirm(`Supprimer la note "${selected.name}" ?`)) return
+    if (!window.confirm(`Supprimer la note "${displayName(selected)}" ?`)) return
     setIsBusy(true)
     try {
       await apiFetch(`/ingredients/${selected.id}`, { method: 'DELETE' })
@@ -283,23 +296,23 @@ export default function AdminNotesPage() {
   function FormFields({ form, setForm }: { form: ReturnType<typeof emptyForm>; setForm: (f: ReturnType<typeof emptyForm>) => void }) {
     return (
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <div className="md:col-span-2">
-          <label className="text-xs text-gray-600 mb-1 block">Nom *</label>
-          <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ex : Bergamote fraîche" className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900" />
-        </div>
+        {LANGUAGES.map((lang) => (
+          <div key={lang.code} className={LANGUAGES.length % 2 === 1 ? '' : ''}>
+            <label className="text-xs text-gray-600 mb-1 block">Nom ({lang.label}) {lang.code === 'fr' ? '*' : ''}</label>
+            <input
+              value={form.translations[lang.code] ?? ''}
+              onChange={(e) => setForm({ ...form, translations: { ...form.translations, [lang.code]: e.target.value } })}
+              placeholder={lang.code === 'fr' ? 'Ex : Bergamote fraîche' : 'Ex: Fresh bergamot'}
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
+            />
+          </div>
+        ))}
         <div>
           <label className="text-xs text-gray-600 mb-1 block">Type *</label>
           <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as 'top' | 'heart' | 'base' })} className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900">
             <option value="top">Note de tête</option>
             <option value="heart">Note de cœur</option>
             <option value="base">Note de fond</option>
-          </select>
-        </div>
-        <div>
-          <label className="text-xs text-gray-600 mb-1 block">Langue *</label>
-          <select value={form.language} onChange={(e) => setForm({ ...form, language: e.target.value })} className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900">
-            <option value="fr">Français</option>
-            <option value="en">English</option>
           </select>
         </div>
         <div>
@@ -345,11 +358,6 @@ export default function AdminNotesPage() {
 
       <div className="flex gap-2 flex-wrap mb-4">
         <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher…" className="flex-1 min-w-[200px] bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400" />
-        <select value={langFilter} onChange={(e) => setLangFilter(e.target.value)} className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900">
-          <option value="fr">Français</option>
-          <option value="en">English</option>
-          <option value="">Toutes langues</option>
-        </select>
         <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900">
           <option value="">Tous types</option>
           <option value="top">Tête</option>
@@ -365,7 +373,9 @@ export default function AdminNotesPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50/40">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Nom</th>
+                {LANGUAGES.map((lang) => (
+                  <th key={lang.code} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Nom ({lang.code.toUpperCase()})</th>
+                ))}
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Type</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Catégorie</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Intensité</th>
@@ -377,17 +387,19 @@ export default function AdminNotesPage() {
             <tbody className="divide-y divide-gray-200">
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-sm text-gray-500">
+                  <td colSpan={5 + LANGUAGES.length} className="px-4 py-10 text-center text-sm text-gray-500">
                     {isBusy ? 'Chargement...' : 'Aucune note.'}
                   </td>
                 </tr>
               )}
               {filtered.map((note) => (
                 <tr key={note.id} className="cursor-pointer transition-colors hover:bg-gray-100/60" onClick={() => openDetail(note)}>
-                  <td className="px-4 py-3">
-                    <p className="text-sm font-medium text-gray-900">{note.name}</p>
-                    {note.description && <p className="text-xs text-gray-600 truncate max-w-xs">{note.description}</p>}
-                  </td>
+                  {LANGUAGES.map((lang) => (
+                    <td key={lang.code} className="px-4 py-3">
+                      <p className="text-sm font-medium text-gray-900">{note.translations[lang.code] || <span className="text-gray-400 italic font-normal">—</span>}</p>
+                      {lang.code === 'fr' && note.description && <p className="text-xs text-gray-600 truncate max-w-xs">{note.description}</p>}
+                    </td>
+                  ))}
                   <td className="px-4 py-3">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_STYLE[note.type]}`}>{TYPE_LABELS[note.type]}</span>
                   </td>
@@ -438,7 +450,7 @@ export default function AdminNotesPage() {
             </div>
             <FormFields form={createForm} setForm={setCreateForm} />
             <div className="flex gap-2 pt-2">
-              <button onClick={createNote} disabled={isBusy || !createForm.name.trim()} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50">Créer</button>
+              <button onClick={createNote} disabled={isBusy || !hasAtLeastOneName(createForm.translations)} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50">Créer</button>
               <button onClick={() => setIsCreateOpen(false)} className="text-gray-500 hover:text-gray-900 px-4 py-2 rounded-lg text-sm transition-colors">Annuler</button>
             </div>
           </div>
@@ -450,7 +462,7 @@ export default function AdminNotesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setSelected(null)}>
           <div className="bg-gray-100 border border-gray-200 rounded-xl p-6 w-full max-w-2xl max-h-[85vh] overflow-y-auto space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Note — {selected.name}</h2>
+              <h2 className="text-lg font-semibold text-gray-900">Note — {displayName(selected)}</h2>
               <button onClick={() => setSelected(null)} className="text-gray-600 hover:text-gray-900"><XIcon size={18} /></button>
             </div>
             <FormFields form={editForm} setForm={setEditForm} />
@@ -458,7 +470,7 @@ export default function AdminNotesPage() {
               <button onClick={deleteNote} className="flex items-center gap-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-700 px-4 py-2 rounded-lg text-sm transition-colors"><Trash2 size={14} /> Supprimer</button>
               <div className="flex-1" />
               <button onClick={() => setSelected(null)} className="text-gray-500 hover:text-gray-900 px-4 py-2 rounded-lg text-sm transition-colors">Fermer</button>
-              <button onClick={saveDetail} disabled={isBusy || !editForm.name.trim()} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50">Enregistrer</button>
+              <button onClick={saveDetail} disabled={isBusy || !hasAtLeastOneName(editForm.translations)} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50">Enregistrer</button>
             </div>
           </div>
         </div>
