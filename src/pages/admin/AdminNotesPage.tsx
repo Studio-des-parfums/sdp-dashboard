@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Trash2, X as XIcon } from 'lucide-react'
+import { ListChecks, Plus, Trash2, X as XIcon } from 'lucide-react'
+import AdminIngredientRulesPage from './AdminIngredientRulesPage'
 
 // Notes olfactives : référentiel partagé entre tous les projets (Lylo et les suivants),
 // stocké dans la base générale du dashboard SDP plutôt que dans une base propre à un projet.
@@ -13,7 +14,7 @@ const LANGUAGES: { code: string; label: string }[] = [
 
 type Note = {
   id: number
-  type: 'top' | 'heart' | 'base'
+  type: 'top' | 'heart' | 'base' | 'booster'
   category: string | null
   description: string | null
   intensity: string | null
@@ -27,18 +28,20 @@ const TYPE_LABELS: Record<string, string> = {
   top: 'Tête',
   heart: 'Cœur',
   base: 'Fond',
+  booster: 'Booster',
 }
 
 const TYPE_STYLE: Record<string, string> = {
   top: 'bg-blue-500/10 text-blue-600',
   heart: 'bg-pink-500/10 text-pink-600',
   base: 'bg-amber-500/10 text-amber-600',
+  booster: 'bg-purple-500/10 text-purple-600',
 }
 
 function emptyForm() {
   return {
     translations: Object.fromEntries(LANGUAGES.map((l) => [l.code, ''])) as Record<string, string>,
-    type: 'top' as 'top' | 'heart' | 'base',
+    type: 'top' as 'top' | 'heart' | 'base' | 'booster',
     category: '',
     description: '',
     intensity: '',
@@ -148,6 +151,7 @@ function TagInput({
 }
 
 export default function AdminNotesPage() {
+  const [view, setView] = useState<'notes' | 'rules'>('notes')
   const [notes, setNotes] = useState<Note[]>([])
   const [isBusy, setIsBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -309,10 +313,11 @@ export default function AdminNotesPage() {
         ))}
         <div>
           <label className="text-xs text-gray-600 mb-1 block">Type *</label>
-          <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as 'top' | 'heart' | 'base' })} className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900">
+          <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as 'top' | 'heart' | 'base' | 'booster' })} className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900">
             <option value="top">Note de tête</option>
             <option value="heart">Note de cœur</option>
             <option value="base">Note de fond</option>
+            <option value="booster">Booster</option>
           </select>
         </div>
         <div>
@@ -344,16 +349,25 @@ export default function AdminNotesPage() {
     )
   }
 
+  if (view === 'rules') {
+    return <AdminIngredientRulesPage onBack={() => setView('notes')} />
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Notes olfactives</h1>
+          <h1 className="text-xl font-bold text-gray-900">Notes olfactives &amp; boosters</h1>
           <p className="text-xs text-gray-600 mt-1">Référentiel partagé entre tous les projets, utilisé notamment par l'IA pour générer des formules de parfum.</p>
         </div>
-        <button onClick={() => { setCreateForm(emptyForm()); setIsCreateOpen(true) }} className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg text-sm transition-colors shrink-0">
-          <Plus size={16} /> Ajouter
-        </button>
+        <div className="flex gap-2 shrink-0">
+          <button onClick={() => setView('rules')} className="flex items-center gap-1.5 bg-white hover:bg-gray-200 text-gray-900 px-3 py-2 rounded-lg text-sm transition-colors border border-gray-300">
+            <ListChecks size={16} /> Règles
+          </button>
+          <button onClick={() => { setCreateForm(emptyForm()); setIsCreateOpen(true) }} className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg text-sm transition-colors">
+            <Plus size={16} /> Ajouter
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-2 flex-wrap mb-4">
@@ -363,6 +377,7 @@ export default function AdminNotesPage() {
           <option value="top">Tête</option>
           <option value="heart">Cœur</option>
           <option value="base">Fond</option>
+          <option value="booster">Booster</option>
         </select>
       </div>
 

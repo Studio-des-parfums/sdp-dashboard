@@ -44,7 +44,7 @@ export default function AdminPage({ embedded, section, onSectionChange: _onSecti
           <span className="font-bold text-sm truncate text-gray-900">Administration</span>
         </div>
         <nav className="flex-1 py-2">
-          {([['projects', 'Projets'], ['users', 'Utilisateurs'], ['roles', 'Rôles'], ['tickets', 'Tickets'], ['notes', 'Notes olfactives']] as [Tab, string][]).map(([id, label]) => (
+          {([['projects', 'Projets'], ['users', 'Utilisateurs'], ['roles', 'Rôles'], ['tickets', 'Tickets'], ['notes', 'Notes & boosters']] as [Tab, string][]).map(([id, label]) => (
             <button
               key={id}
               onClick={() => setTab(id)}
