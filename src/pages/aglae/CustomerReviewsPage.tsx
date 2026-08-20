@@ -197,6 +197,7 @@ export default function CustomerReviewsPage({ onBack }: { onBack: () => void }) 
       for (const formula of editingFormulas) {
         await formulasApi.updateNotes(formula.id, {
           reference: formula.reference,
+          perfume_name: formula.perfume_name,
           top_notes: formula.top_notes,
           heart_notes: formula.heart_notes,
           base_notes: formula.base_notes,
@@ -279,7 +280,7 @@ export default function CustomerReviewsPage({ onBack }: { onBack: () => void }) 
           type="text"
           value={searchTerm}
           onChange={e => handleSearchChange(e.target.value)}
-          placeholder="Rechercher par nom, prénom ou référence..."
+          placeholder="Rechercher par nom, prénom, référence ou nom de parfum..."
           className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-indigo-500 transition-colors"
         />
         {searchTerm && (
@@ -582,12 +583,10 @@ export default function CustomerReviewsPage({ onBack }: { onBack: () => void }) 
                           <span className="text-gray-600">Référence :</span>
                           <span className="text-gray-900 ml-1">{formula.reference || 'Non renseigné'}</span>
                         </div>
-                        {formula.perfume_name && (
-                          <div className="text-xs">
-                            <span className="text-gray-600">Parfum :</span>
-                            <span className="text-gray-900 ml-1">{formula.perfume_name}</span>
-                          </div>
-                        )}
+                        <div className="text-xs">
+                          <span className="text-gray-600">Nom du parfum :</span>
+                          <span className="text-gray-900 ml-1">{formula.perfume_name || 'Non renseigné'}</span>
+                        </div>
                       </div>
                       <div className="grid grid-cols-3 gap-4">
                         {(['top_notes', 'heart_notes', 'base_notes'] as const).map((noteType, ti) => (
@@ -628,6 +627,19 @@ export default function CustomerReviewsPage({ onBack }: { onBack: () => void }) 
                           onChange={e => {
                             const updated = [...editingFormulas]
                             updated[formulaIndex] = { ...updated[formulaIndex], reference: e.target.value }
+                            setEditingFormulas(updated)
+                          }}
+                          className="w-full bg-gray-100 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-indigo-500 transition-colors"
+                        />
+                      </div>
+                      <div className="mb-3">
+                        <label className="text-xs text-gray-600 mb-1 block">Nom du parfum</label>
+                        <input
+                          type="text"
+                          value={formula.perfume_name || ''}
+                          onChange={e => {
+                            const updated = [...editingFormulas]
+                            updated[formulaIndex] = { ...updated[formulaIndex], perfume_name: e.target.value }
                             setEditingFormulas(updated)
                           }}
                           className="w-full bg-gray-100 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-indigo-500 transition-colors"

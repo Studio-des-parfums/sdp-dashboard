@@ -272,7 +272,7 @@ export default function ClientsPage({
 
       <div className="bg-gray-100 border border-gray-200 rounded-xl p-4 space-y-3">
         <Input
-          placeholder="Rechercher par nom, email, téléphone..."
+          placeholder="Rechercher par nom, email, téléphone, nom de parfum..."
           value={search}
           onChange={e => setSearch(e.target.value)}
         />

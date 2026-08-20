@@ -200,6 +200,7 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
     setIsSaving(true)
     try {
       await formulasApi.updateNotes(formulaId, {
+        perfume_name: editingData.perfume_name,
         top_notes: editingData.top_notes,
         heart_notes: editingData.heart_notes,
         base_notes: editingData.base_notes,
@@ -251,9 +252,7 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
         <button onClick={onBack} className="text-gray-500 hover:text-gray-900 transition-colors text-lg">←</button>
         <div>
           <h1 className="text-lg font-bold text-gray-900">{formula.reference || `Formule #${formula.id}`}</h1>
-          {formula.perfume_name && (
-            <p className="text-xs text-gray-600">{formula.perfume_name}</p>
-          )}
+          <p className="text-xs text-gray-600">Nom du parfum : {formula.perfume_name || 'Non renseigné'}</p>
           {customerName && (
             <p className="text-xs text-gray-600">Client : {customerName}</p>
           )}
@@ -328,6 +327,15 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
             </>
           ) : (
             <>
+              <div className="mb-4">
+                <label className="text-xs text-gray-600 mb-1 block">Nom du parfum</label>
+                <input
+                  type="text"
+                  value={editingData?.perfume_name || ''}
+                  onChange={e => setEditingData(prev => prev ? { ...prev, perfume_name: e.target.value } : prev)}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-indigo-500 transition-colors"
+                />
+              </div>
               <div className="grid grid-cols-3 gap-4">
                 {(['top_notes', 'heart_notes', 'base_notes'] as const).map((noteType, ti) => (
                   <div key={noteType}>
