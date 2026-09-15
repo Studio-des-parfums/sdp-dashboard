@@ -52,6 +52,57 @@ async function apiFetch(path: string, init?: RequestInit) {
   return res.json() as Promise<unknown>
 }
 
+// Déclaré au niveau module (et non à l'intérieur du composant) : sinon React le
+// traiterait comme un type de composant différent à chaque frappe, démontant et
+// remontant les inputs, ce qui leur fait perdre le focus à chaque caractère saisi.
+function AtelierFormFields({
+  form,
+  setForm,
+  coffrets,
+}: {
+  form: ReturnType<typeof emptyForm>
+  setForm: (f: ReturnType<typeof emptyForm>) => void
+  coffrets: Coffret[]
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      {LANGUAGES.map((lang) => (
+        <div key={lang.code}>
+          <label className="text-xs text-gray-600 mb-1 block">Nom ({lang.label}) {lang.code === 'fr' ? '*' : ''}</label>
+          <input
+            value={form.translations[lang.code] ?? ''}
+            onChange={(e) => setForm({ ...form, translations: { ...form.translations, [lang.code]: e.target.value } })}
+            placeholder={lang.code === 'fr' ? 'Ex : Atelier découverte' : 'Ex: Discovery workshop'}
+            className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
+          />
+        </div>
+      ))}
+      <div className="md:col-span-2">
+        <label className="text-xs text-gray-600 mb-1 block">Coffret *</label>
+        <select
+          value={form.coffret_id || ''}
+          onChange={(e) => setForm({ ...form, coffret_id: Number(e.target.value) })}
+          className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
+        >
+          <option value="">— Sélectionner —</option>
+          {coffrets.map((c) => (
+            <option key={c.id} value={c.id}>{coffretName(c)}</option>
+          ))}
+        </select>
+      </div>
+      <div className="md:col-span-2">
+        <label className="text-xs text-gray-600 mb-1 block">Description</label>
+        <input
+          value={form.description}
+          onChange={(e) => setForm({ ...form, description: e.target.value })}
+          placeholder="Déroulé, contenu de l'atelier…"
+          className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
+        />
+      </div>
+    </div>
+  )
+}
+
 export default function AdminAteliersPage() {
   const [ateliers, setAteliers] = useState<Atelier[]>([])
   const [coffrets, setCoffrets] = useState<Coffret[]>([])
@@ -180,46 +231,6 @@ export default function AdminAteliersPage() {
     }
   }
 
-  function FormFields({ form, setForm }: { form: ReturnType<typeof emptyForm>; setForm: (f: ReturnType<typeof emptyForm>) => void }) {
-    return (
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        {LANGUAGES.map((lang) => (
-          <div key={lang.code}>
-            <label className="text-xs text-gray-600 mb-1 block">Nom ({lang.label}) {lang.code === 'fr' ? '*' : ''}</label>
-            <input
-              value={form.translations[lang.code] ?? ''}
-              onChange={(e) => setForm({ ...form, translations: { ...form.translations, [lang.code]: e.target.value } })}
-              placeholder={lang.code === 'fr' ? 'Ex : Atelier découverte' : 'Ex: Discovery workshop'}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
-            />
-          </div>
-        ))}
-        <div className="md:col-span-2">
-          <label className="text-xs text-gray-600 mb-1 block">Coffret *</label>
-          <select
-            value={form.coffret_id || ''}
-            onChange={(e) => setForm({ ...form, coffret_id: Number(e.target.value) })}
-            className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
-          >
-            <option value="">— Sélectionner —</option>
-            {coffrets.map((c) => (
-              <option key={c.id} value={c.id}>{coffretName(c)}</option>
-            ))}
-          </select>
-        </div>
-        <div className="md:col-span-2">
-          <label className="text-xs text-gray-600 mb-1 block">Description</label>
-          <input
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-            placeholder="Déroulé, contenu de l'atelier…"
-            className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
-          />
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -294,7 +305,7 @@ export default function AdminAteliersPage() {
               <h2 className="text-lg font-semibold text-gray-900">Nouvel atelier</h2>
               <button onClick={() => setIsCreateOpen(false)} className="text-gray-600 hover:text-gray-900"><XIcon size={18} /></button>
             </div>
-            <FormFields form={createForm} setForm={setCreateForm} />
+            <AtelierFormFields form={createForm} setForm={setCreateForm} coffrets={coffrets} />
             <div className="flex gap-2 pt-2">
               <button onClick={createAtelier} disabled={isBusy || !isFormValid(createForm)} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50">Créer</button>
               <button onClick={() => setIsCreateOpen(false)} className="text-gray-500 hover:text-gray-900 px-4 py-2 rounded-lg text-sm transition-colors">Annuler</button>
@@ -311,7 +322,7 @@ export default function AdminAteliersPage() {
               <h2 className="text-lg font-semibold text-gray-900">Atelier — {displayName(selected)}</h2>
               <button onClick={() => setSelected(null)} className="text-gray-600 hover:text-gray-900"><XIcon size={18} /></button>
             </div>
-            <FormFields form={editForm} setForm={setEditForm} />
+            <AtelierFormFields form={editForm} setForm={setEditForm} coffrets={coffrets} />
             <div className="flex gap-2 pt-2">
               <button onClick={deleteAtelier} className="flex items-center gap-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-700 px-4 py-2 rounded-lg text-sm transition-colors"><Trash2 size={14} /> Supprimer</button>
               <div className="flex-1" />

@@ -94,8 +94,10 @@ export const mockDashboards: Record<string, Dashboard> = {
     sections: [
       { id: 'projects', name: 'Projets', icon: 'LayoutDashboard', metricIds: [], chartIds: [] },
       { id: 'users', name: 'Utilisateurs', icon: 'Users', metricIds: [], chartIds: [] },
+      { id: 'roles', name: 'Rôles', icon: 'Shield', metricIds: [], chartIds: [] },
       { id: 'tickets', name: 'Tickets', icon: 'Headphones', metricIds: [], chartIds: [] },
-      { id: 'notes', name: 'Notes olfactives', icon: 'Beaker', metricIds: [], chartIds: [] },
+      { id: 'notes', name: 'Coffrets et Notes', icon: 'StickyNote', metricIds: [], chartIds: [] },
+      { id: 'ateliers', name: 'Ateliers', icon: 'FileText', metricIds: [], chartIds: [] },
     ],
     metrics: [],
     charts: [

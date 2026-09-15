@@ -246,6 +246,222 @@ function noteCountPayload(form: Form) {
   }
 }
 
+// Déclaré au niveau module (et non à l'intérieur du composant) : sinon React le
+// traiterait comme un type de composant différent à chaque frappe, démontant et
+// remontant les inputs, ce qui leur fait perdre le focus à chaque caractère saisi.
+function RuleFormFields({
+  form,
+  setForm,
+  notes,
+  coffrets,
+}: {
+  form: Form
+  setForm: (f: Form) => void
+  notes: Note[]
+  coffrets: Coffret[]
+}) {
+  // Les notes d'un coffret sont différentes de celles d'un autre : une fois
+  // le coffret choisi, on ne propose plus que ses notes dans les sélecteurs.
+  const scopedNotes = form.box_set_id ? notes.filter((n) => n.coffret_ids.includes(form.box_set_id)) : notes
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <label className="text-xs text-gray-600 mb-1 block">Coffret <span className="font-normal">(vide = toutes les notes)</span></label>
+        <select
+          value={form.box_set_id || ''}
+          onChange={(e) => setForm({ ...form, box_set_id: Number(e.target.value), source_ingredient_id: 0, target_ingredient_ids: [] })}
+          className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
+        >
+          <option value="">— Tous les coffrets —</option>
+          {coffrets.map((c) => (
+            <option key={c.id} value={c.id}>{coffretName(c)}</option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="text-xs text-gray-600 mb-1 block">Intensité de parfum concernée *</label>
+        <select
+          value={form.intensity}
+          onChange={(e) => setForm({ ...form, intensity: e.target.value as Intensity })}
+          className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
+        >
+          <option value="toutes">Toutes intensités</option>
+          <option value="legere">Léger</option>
+          <option value="moyenne">Modéré</option>
+          <option value="forte">Fort</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="text-xs text-gray-600 mb-1 block">
+          Quantité (ml) du parfum concernée {form.rule_type === 'note_count' ? '*' : <span className="font-normal">(vide = toutes tailles)</span>}
+        </label>
+        <BottleSizeMultiSelect values={form.bottle_sizes} onChange={(bottle_sizes) => setForm({ ...form, bottle_sizes })} />
+      </div>
+
+      <div>
+        <label className="text-xs text-gray-600 mb-1 block">Type de règle *</label>
+        <select
+          value={form.rule_type}
+          onChange={(e) => setForm({ ...form, rule_type: e.target.value as RuleType })}
+          className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
+        >
+          <option value="incompatibility">Incompatibilité — ces notes ne doivent jamais être ensemble</option>
+          <option value="max_dosage">Dosage max — plafonne la quantité de ces notes</option>
+          <option value="recommendation">Recommandation — si une note est choisie, en suggère d'autres</option>
+          <option value="note_count">Nombre de notes — min/max de notes par famille pour une taille de flacon</option>
+          <option value="group_limit">Limite de choix — plafonne le nombre de notes choisies parmi une liste</option>
+        </select>
+      </div>
+
+      {form.rule_type === 'incompatibility' && (
+        <div>
+          <label className="text-xs text-gray-600 mb-1 block">Notes qui ne doivent jamais être ensemble * <span className="font-normal">(2 minimum)</span></label>
+          <NoteMultiSelect
+            notes={scopedNotes}
+            values={form.target_ingredient_ids}
+            onChange={(target_ingredient_ids) => setForm({ ...form, target_ingredient_ids })}
+          />
+        </div>
+      )}
+
+      {form.rule_type === 'max_dosage' && (
+        <div>
+          <label className="text-xs text-gray-600 mb-1 block">Notes concernées * <span className="font-normal">(1 ou plusieurs, même plafond partagé)</span></label>
+          <NoteMultiSelect
+            notes={scopedNotes}
+            values={form.target_ingredient_ids}
+            onChange={(target_ingredient_ids) => setForm({ ...form, target_ingredient_ids })}
+          />
+        </div>
+      )}
+
+      {form.rule_type === 'recommendation' && (
+        <div>
+          <label className="text-xs text-gray-600 mb-1 block">Note source *</label>
+          <select
+            value={form.source_ingredient_id || ''}
+            onChange={(e) => setForm({ ...form, source_ingredient_id: Number(e.target.value) })}
+            className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
+          >
+            <option value="">— Sélectionner —</option>
+            {scopedNotes.map((n) => (
+              <option key={n.id} value={n.id}>{displayName(n)}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {form.rule_type === 'max_dosage' && (
+        <div>
+          <label className="text-xs text-gray-600 mb-1 block">Quantité max (ml) *</label>
+          <input
+            type="number"
+            min="0"
+            step="0.1"
+            value={form.max_ml}
+            onChange={(e) => setForm({ ...form, max_ml: e.target.value })}
+            placeholder="Ex : 2"
+            className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
+          />
+        </div>
+      )}
+
+      {form.rule_type === 'recommendation' && (
+        <div>
+          <label className="text-xs text-gray-600 mb-1 block">Notes conseillées *</label>
+          <NoteMultiSelect
+            notes={scopedNotes}
+            values={form.target_ingredient_ids}
+            onChange={(target_ingredient_ids) => setForm({ ...form, target_ingredient_ids })}
+            excludeId={form.source_ingredient_id || undefined}
+          />
+        </div>
+      )}
+
+      {form.rule_type === 'group_limit' && (
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-gray-600 mb-1 block">Notes du groupe * <span className="font-normal">(2 minimum)</span></label>
+            <NoteMultiSelect
+              notes={scopedNotes}
+              values={form.target_ingredient_ids}
+              onChange={(target_ingredient_ids) => setForm({ ...form, target_ingredient_ids })}
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-600 mb-1 block">Nombre max de notes à choisir parmi ce groupe *</label>
+            <input
+              type="number"
+              min="1"
+              step="1"
+              value={form.max_choices}
+              onChange={(e) => setForm({ ...form, max_choices: e.target.value })}
+              placeholder="Ex : 3"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
+            />
+            <p className="text-[11px] text-gray-500 mt-1">Doit être inférieur au nombre de notes du groupe.</p>
+          </div>
+        </div>
+      )}
+
+      {form.rule_type === 'note_count' && (
+        <div className="space-y-3">
+          <p className="text-[11px] text-gray-500">Nombre de notes choisies par famille (pas une quantité en ml). Laisser vide = pas de contrainte sur cette borne.</p>
+          {NOTE_COUNT_FAMILIES.map(({ key, label }) => {
+            const minKey = `min_${key}` as const
+            const maxKey = `max_${key}` as const
+            const rangeValid = isValidRange(form[minKey], form[maxKey])
+            return (
+              <div key={key} className="grid grid-cols-3 gap-3 items-end">
+                <div className="col-span-1">
+                  <label className="text-xs text-gray-600 mb-1 block">{label}</label>
+                </div>
+                <div>
+                  <label className="text-[11px] text-gray-500 mb-1 block">Min</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={form[minKey]}
+                    onChange={(e) => setForm({ ...form, [minKey]: e.target.value })}
+                    placeholder="0"
+                    className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-gray-500 mb-1 block">Max</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={form[maxKey]}
+                    onChange={(e) => setForm({ ...form, [maxKey]: e.target.value })}
+                    placeholder="—"
+                    className={`w-full bg-white border rounded-lg px-3 py-2 text-sm text-gray-900 ${rangeValid ? 'border-gray-300' : 'border-red-400'}`}
+                  />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      <div>
+        <label className="text-xs text-gray-600 mb-1 block">Note libre</label>
+        <input
+          value={form.note}
+          onChange={(e) => setForm({ ...form, note: e.target.value })}
+          placeholder="Commentaire, justification…"
+          className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
+        />
+      </div>
+    </div>
+  )
+}
+
 export default function AdminIngredientRulesPage({ onBack }: { onBack: () => void }) {
   const [notes, setNotes] = useState<Note[]>([])
   const [rules, setRules] = useState<Rule[]>([])
@@ -441,209 +657,6 @@ export default function AdminIngredientRulesPage({ onBack }: { onBack: () => voi
     }
   }
 
-  function FormFields({ form, setForm }: { form: Form; setForm: (f: Form) => void }) {
-    // Les notes d'un coffret sont différentes de celles d'un autre : une fois
-    // le coffret choisi, on ne propose plus que ses notes dans les sélecteurs.
-    const scopedNotes = form.box_set_id ? notes.filter((n) => n.coffret_ids.includes(form.box_set_id)) : notes
-
-    return (
-      <div className="space-y-3">
-        <div>
-          <label className="text-xs text-gray-600 mb-1 block">Coffret <span className="font-normal">(vide = toutes les notes)</span></label>
-          <select
-            value={form.box_set_id || ''}
-            onChange={(e) => setForm({ ...form, box_set_id: Number(e.target.value), source_ingredient_id: 0, target_ingredient_ids: [] })}
-            className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
-          >
-            <option value="">— Tous les coffrets —</option>
-            {coffrets.map((c) => (
-              <option key={c.id} value={c.id}>{coffretName(c)}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="text-xs text-gray-600 mb-1 block">Intensité de parfum concernée *</label>
-          <select
-            value={form.intensity}
-            onChange={(e) => setForm({ ...form, intensity: e.target.value as Intensity })}
-            className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
-          >
-            <option value="toutes">Toutes intensités</option>
-            <option value="legere">Léger</option>
-            <option value="moyenne">Modéré</option>
-            <option value="forte">Fort</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="text-xs text-gray-600 mb-1 block">
-            Quantité (ml) du parfum concernée {form.rule_type === 'note_count' ? '*' : <span className="font-normal">(vide = toutes tailles)</span>}
-          </label>
-          <BottleSizeMultiSelect values={form.bottle_sizes} onChange={(bottle_sizes) => setForm({ ...form, bottle_sizes })} />
-        </div>
-
-        <div>
-          <label className="text-xs text-gray-600 mb-1 block">Type de règle *</label>
-          <select
-            value={form.rule_type}
-            onChange={(e) => setForm({ ...form, rule_type: e.target.value as RuleType })}
-            className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
-          >
-            <option value="incompatibility">Incompatibilité — ces notes ne doivent jamais être ensemble</option>
-            <option value="max_dosage">Dosage max — plafonne la quantité de ces notes</option>
-            <option value="recommendation">Recommandation — si une note est choisie, en suggère d'autres</option>
-            <option value="note_count">Nombre de notes — min/max de notes par famille pour une taille de flacon</option>
-            <option value="group_limit">Limite de choix — plafonne le nombre de notes choisies parmi une liste</option>
-          </select>
-        </div>
-
-        {form.rule_type === 'incompatibility' && (
-          <div>
-            <label className="text-xs text-gray-600 mb-1 block">Notes qui ne doivent jamais être ensemble * <span className="font-normal">(2 minimum)</span></label>
-            <NoteMultiSelect
-              notes={scopedNotes}
-              values={form.target_ingredient_ids}
-              onChange={(target_ingredient_ids) => setForm({ ...form, target_ingredient_ids })}
-            />
-          </div>
-        )}
-
-        {form.rule_type === 'max_dosage' && (
-          <div>
-            <label className="text-xs text-gray-600 mb-1 block">Notes concernées * <span className="font-normal">(1 ou plusieurs, même plafond partagé)</span></label>
-            <NoteMultiSelect
-              notes={scopedNotes}
-              values={form.target_ingredient_ids}
-              onChange={(target_ingredient_ids) => setForm({ ...form, target_ingredient_ids })}
-            />
-          </div>
-        )}
-
-        {form.rule_type === 'recommendation' && (
-          <div>
-            <label className="text-xs text-gray-600 mb-1 block">Note source *</label>
-            <select
-              value={form.source_ingredient_id || ''}
-              onChange={(e) => setForm({ ...form, source_ingredient_id: Number(e.target.value) })}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
-            >
-              <option value="">— Sélectionner —</option>
-              {scopedNotes.map((n) => (
-                <option key={n.id} value={n.id}>{displayName(n)}</option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {form.rule_type === 'max_dosage' && (
-          <div>
-            <label className="text-xs text-gray-600 mb-1 block">Quantité max (ml) *</label>
-            <input
-              type="number"
-              min="0"
-              step="0.1"
-              value={form.max_ml}
-              onChange={(e) => setForm({ ...form, max_ml: e.target.value })}
-              placeholder="Ex : 2"
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
-            />
-          </div>
-        )}
-
-        {form.rule_type === 'recommendation' && (
-          <div>
-            <label className="text-xs text-gray-600 mb-1 block">Notes conseillées *</label>
-            <NoteMultiSelect
-              notes={scopedNotes}
-              values={form.target_ingredient_ids}
-              onChange={(target_ingredient_ids) => setForm({ ...form, target_ingredient_ids })}
-              excludeId={form.source_ingredient_id || undefined}
-            />
-          </div>
-        )}
-
-        {form.rule_type === 'group_limit' && (
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs text-gray-600 mb-1 block">Notes du groupe * <span className="font-normal">(2 minimum)</span></label>
-              <NoteMultiSelect
-                notes={scopedNotes}
-                values={form.target_ingredient_ids}
-                onChange={(target_ingredient_ids) => setForm({ ...form, target_ingredient_ids })}
-              />
-            </div>
-            <div>
-              <label className="text-xs text-gray-600 mb-1 block">Nombre max de notes à choisir parmi ce groupe *</label>
-              <input
-                type="number"
-                min="1"
-                step="1"
-                value={form.max_choices}
-                onChange={(e) => setForm({ ...form, max_choices: e.target.value })}
-                placeholder="Ex : 3"
-                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
-              />
-              <p className="text-[11px] text-gray-500 mt-1">Doit être inférieur au nombre de notes du groupe.</p>
-            </div>
-          </div>
-        )}
-
-        {form.rule_type === 'note_count' && (
-          <div className="space-y-3">
-            <p className="text-[11px] text-gray-500">Nombre de notes choisies par famille (pas une quantité en ml). Laisser vide = pas de contrainte sur cette borne.</p>
-            {NOTE_COUNT_FAMILIES.map(({ key, label }) => {
-              const minKey = `min_${key}` as const
-              const maxKey = `max_${key}` as const
-              const rangeValid = isValidRange(form[minKey], form[maxKey])
-              return (
-                <div key={key} className="grid grid-cols-3 gap-3 items-end">
-                  <div className="col-span-1">
-                    <label className="text-xs text-gray-600 mb-1 block">{label}</label>
-                  </div>
-                  <div>
-                    <label className="text-[11px] text-gray-500 mb-1 block">Min</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={form[minKey]}
-                      onChange={(e) => setForm({ ...form, [minKey]: e.target.value })}
-                      placeholder="0"
-                      className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] text-gray-500 mb-1 block">Max</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={form[maxKey]}
-                      onChange={(e) => setForm({ ...form, [maxKey]: e.target.value })}
-                      placeholder="—"
-                      className={`w-full bg-white border rounded-lg px-3 py-2 text-sm text-gray-900 ${rangeValid ? 'border-gray-300' : 'border-red-400'}`}
-                    />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        <div>
-          <label className="text-xs text-gray-600 mb-1 block">Note libre</label>
-          <input
-            value={form.note}
-            onChange={(e) => setForm({ ...form, note: e.target.value })}
-            placeholder="Commentaire, justification…"
-            className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
-          />
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div>
       <div className="flex items-center gap-3 mb-6">
@@ -788,7 +801,7 @@ export default function AdminIngredientRulesPage({ onBack }: { onBack: () => voi
               <h2 className="text-lg font-semibold text-gray-900">Nouvelle règle</h2>
               <button onClick={() => setIsCreateOpen(false)} className="text-gray-600 hover:text-gray-900"><XIcon size={18} /></button>
             </div>
-            <FormFields form={createForm} setForm={setCreateForm} />
+            <RuleFormFields form={createForm} setForm={setCreateForm} notes={notes} coffrets={coffrets} />
             <div className="flex gap-2 pt-2">
               <button onClick={createRule} disabled={isBusy || !isFormValid(createForm)} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50">Créer</button>
               <button onClick={() => setIsCreateOpen(false)} className="text-gray-500 hover:text-gray-900 px-4 py-2 rounded-lg text-sm transition-colors">Annuler</button>
@@ -805,7 +818,7 @@ export default function AdminIngredientRulesPage({ onBack }: { onBack: () => voi
               <h2 className="text-lg font-semibold text-gray-900">Règle — {ruleLabel(selected)}</h2>
               <button onClick={() => setSelected(null)} className="text-gray-600 hover:text-gray-900"><XIcon size={18} /></button>
             </div>
-            <FormFields form={editForm} setForm={setEditForm} />
+            <RuleFormFields form={editForm} setForm={setEditForm} notes={notes} coffrets={coffrets} />
             <div className="flex gap-2 pt-2">
               <button onClick={deleteRule} className="flex items-center gap-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-700 px-4 py-2 rounded-lg text-sm transition-colors"><Trash2 size={14} /> Supprimer</button>
               <div className="flex-1" />

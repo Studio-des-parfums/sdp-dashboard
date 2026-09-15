@@ -117,6 +117,69 @@ function CoffretMultiSelect({
   )
 }
 
+// Déclaré au niveau module (et non à l'intérieur du composant) : sinon React le
+// traiterait comme un type de composant différent à chaque frappe, démontant et
+// remontant les inputs, ce qui leur fait perdre le focus à chaque caractère saisi.
+function NoteFormFields({
+  form,
+  setForm,
+  coffrets,
+}: {
+  form: ReturnType<typeof emptyForm>
+  setForm: (f: ReturnType<typeof emptyForm>) => void
+  coffrets: Coffret[]
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      {LANGUAGES.map((lang) => (
+        <div key={lang.code} className={LANGUAGES.length % 2 === 1 ? '' : ''}>
+          <label className="text-xs text-gray-600 mb-1 block">Nom ({lang.label}) {lang.code === 'fr' ? '*' : ''}</label>
+          <input
+            value={form.translations[lang.code] ?? ''}
+            onChange={(e) => setForm({ ...form, translations: { ...form.translations, [lang.code]: e.target.value } })}
+            placeholder={lang.code === 'fr' ? 'Ex : Bergamote fraîche' : 'Ex: Fresh bergamot'}
+            className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
+          />
+        </div>
+      ))}
+      <div>
+        <label className="text-xs text-gray-600 mb-1 block">Type *</label>
+        <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as 'top' | 'heart' | 'base' | 'booster' })} className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900">
+          <option value="top">Note de tête</option>
+          <option value="heart">Note de cœur</option>
+          <option value="base">Note de fond</option>
+          <option value="booster">Booster</option>
+        </select>
+      </div>
+      <div>
+        <label className="text-xs text-gray-600 mb-1 block">Catégorie</label>
+        <input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="adult, enfant…" className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900" />
+      </div>
+      <div>
+        <label className="text-xs text-gray-600 mb-1 block">Intensité</label>
+        <select value={form.intensity} onChange={(e) => setForm({ ...form, intensity: e.target.value })} className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900">
+          <option value="">— Non renseignée —</option>
+          <option value="legere">Légère</option>
+          <option value="moyenne">Moyenne</option>
+          <option value="forte">Forte</option>
+        </select>
+      </div>
+      <div className="md:col-span-2">
+        <label className="text-xs text-gray-600 mb-1 block">Description olfactive</label>
+        <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Note agrumée, fraîche et lumineuse…" className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900" />
+      </div>
+      <div className="md:col-span-2">
+        <label className="text-xs text-gray-600 mb-1 block">Allergènes <span className="font-normal">(séparés par des virgules — laisser vide = IA raisonne seule)</span></label>
+        <input value={form.allergens} onChange={(e) => setForm({ ...form, allergens: e.target.value })} placeholder="limonène, linalool, géraniol…" className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900" />
+      </div>
+      <div className="md:col-span-2">
+        <label className="text-xs text-gray-600 mb-1 block">Coffrets</label>
+        <CoffretMultiSelect values={form.coffret_ids} onChange={(coffret_ids) => setForm({ ...form, coffret_ids })} coffrets={coffrets} />
+      </div>
+    </div>
+  )
+}
+
 export default function AdminNotesPage() {
   const [view, setView] = useState<'notes' | 'rules'>('notes')
   const [notes, setNotes] = useState<Note[]>([])
@@ -331,58 +394,6 @@ export default function AdminNotesPage() {
     }
   }
 
-  function FormFields({ form, setForm }: { form: ReturnType<typeof emptyForm>; setForm: (f: ReturnType<typeof emptyForm>) => void }) {
-    return (
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        {LANGUAGES.map((lang) => (
-          <div key={lang.code} className={LANGUAGES.length % 2 === 1 ? '' : ''}>
-            <label className="text-xs text-gray-600 mb-1 block">Nom ({lang.label}) {lang.code === 'fr' ? '*' : ''}</label>
-            <input
-              value={form.translations[lang.code] ?? ''}
-              onChange={(e) => setForm({ ...form, translations: { ...form.translations, [lang.code]: e.target.value } })}
-              placeholder={lang.code === 'fr' ? 'Ex : Bergamote fraîche' : 'Ex: Fresh bergamot'}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
-            />
-          </div>
-        ))}
-        <div>
-          <label className="text-xs text-gray-600 mb-1 block">Type *</label>
-          <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as 'top' | 'heart' | 'base' | 'booster' })} className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900">
-            <option value="top">Note de tête</option>
-            <option value="heart">Note de cœur</option>
-            <option value="base">Note de fond</option>
-            <option value="booster">Booster</option>
-          </select>
-        </div>
-        <div>
-          <label className="text-xs text-gray-600 mb-1 block">Catégorie</label>
-          <input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="adult, enfant…" className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900" />
-        </div>
-        <div>
-          <label className="text-xs text-gray-600 mb-1 block">Intensité</label>
-          <select value={form.intensity} onChange={(e) => setForm({ ...form, intensity: e.target.value })} className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900">
-            <option value="">— Non renseignée —</option>
-            <option value="legere">Légère</option>
-            <option value="moyenne">Moyenne</option>
-            <option value="forte">Forte</option>
-          </select>
-        </div>
-        <div className="md:col-span-2">
-          <label className="text-xs text-gray-600 mb-1 block">Description olfactive</label>
-          <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Note agrumée, fraîche et lumineuse…" className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900" />
-        </div>
-        <div className="md:col-span-2">
-          <label className="text-xs text-gray-600 mb-1 block">Allergènes <span className="font-normal">(séparés par des virgules — laisser vide = IA raisonne seule)</span></label>
-          <input value={form.allergens} onChange={(e) => setForm({ ...form, allergens: e.target.value })} placeholder="limonène, linalool, géraniol…" className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900" />
-        </div>
-        <div className="md:col-span-2">
-          <label className="text-xs text-gray-600 mb-1 block">Coffrets</label>
-          <CoffretMultiSelect values={form.coffret_ids} onChange={(coffret_ids) => setForm({ ...form, coffret_ids })} coffrets={coffrets} />
-        </div>
-      </div>
-    )
-  }
-
   if (view === 'rules') {
     return <AdminIngredientRulesPage onBack={() => setView('notes')} />
   }
@@ -505,7 +516,7 @@ export default function AdminNotesPage() {
               <h2 className="text-lg font-semibold text-gray-900">Nouvelle note</h2>
               <button onClick={() => setIsCreateOpen(false)} className="text-gray-600 hover:text-gray-900"><XIcon size={18} /></button>
             </div>
-            <FormFields form={createForm} setForm={setCreateForm} />
+            <NoteFormFields form={createForm} setForm={setCreateForm} coffrets={coffrets} />
             <div className="flex gap-2 pt-2">
               <button onClick={createNote} disabled={isBusy || !hasAtLeastOneName(createForm.translations)} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50">Créer</button>
               <button onClick={() => setIsCreateOpen(false)} className="text-gray-500 hover:text-gray-900 px-4 py-2 rounded-lg text-sm transition-colors">Annuler</button>
@@ -532,7 +543,7 @@ export default function AdminNotesPage() {
                 <button onClick={() => setSelected(null)} className="text-gray-600 hover:text-gray-900"><XIcon size={18} /></button>
               </div>
             </div>
-            <FormFields form={editForm} setForm={setEditForm} />
+            <NoteFormFields form={editForm} setForm={setEditForm} coffrets={coffrets} />
             <div className="flex gap-2 pt-2">
               <button onClick={deleteNote} className="flex items-center gap-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-700 px-4 py-2 rounded-lg text-sm transition-colors"><Trash2 size={14} /> Supprimer</button>
               <div className="flex-1" />
