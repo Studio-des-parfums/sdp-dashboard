@@ -12,6 +12,7 @@ type Atelier = {
   id: number
   coffret_id: number
   description: string | null
+  volume_ml: number | null
   is_active: boolean
   translations: Record<string, string>
 }
@@ -30,6 +31,7 @@ function emptyForm() {
     translations: Object.fromEntries(LANGUAGES.map((l) => [l.code, ''])) as Record<string, string>,
     coffret_id: 0,
     description: '',
+    volume_ml: '',
   }
 }
 
@@ -89,6 +91,18 @@ function AtelierFormFields({
             <option key={c.id} value={c.id}>{coffretName(c)}</option>
           ))}
         </select>
+      </div>
+      <div>
+        <label className="text-xs text-gray-600 mb-1 block">Quantité (ml)</label>
+        <input
+          type="number"
+          min="0"
+          step="0.1"
+          value={form.volume_ml}
+          onChange={(e) => setForm({ ...form, volume_ml: e.target.value })}
+          placeholder="Ex : 30"
+          className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
+        />
       </div>
       <div className="md:col-span-2">
         <label className="text-xs text-gray-600 mb-1 block">Description</label>
@@ -161,6 +175,7 @@ export default function AdminAteliersPage() {
           translations: createForm.translations,
           coffret_id: createForm.coffret_id,
           description: createForm.description.trim() || null,
+          volume_ml: createForm.volume_ml.trim() ? Number(createForm.volume_ml) : null,
         }),
       })
       setIsCreateOpen(false)
@@ -179,6 +194,7 @@ export default function AdminAteliersPage() {
       translations: { ...Object.fromEntries(LANGUAGES.map((l) => [l.code, ''])), ...atelier.translations },
       coffret_id: atelier.coffret_id,
       description: atelier.description ?? '',
+      volume_ml: atelier.volume_ml != null ? String(atelier.volume_ml) : '',
     })
   }
 
@@ -192,6 +208,7 @@ export default function AdminAteliersPage() {
           translations: editForm.translations,
           coffret_id: editForm.coffret_id,
           description: editForm.description.trim() || null,
+          volume_ml: editForm.volume_ml.trim() ? Number(editForm.volume_ml) : null,
           is_active: selected.is_active,
         }),
       })
@@ -258,13 +275,14 @@ export default function AdminAteliersPage() {
                   <th key={lang.code} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Nom ({lang.code.toUpperCase()})</th>
                 ))}
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Coffret</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Quantité</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Statut</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={2 + LANGUAGES.length} className="px-4 py-10 text-center text-sm text-gray-500">
+                  <td colSpan={3 + LANGUAGES.length} className="px-4 py-10 text-center text-sm text-gray-500">
                     {isBusy ? 'Chargement...' : 'Aucun atelier.'}
                   </td>
                 </tr>
@@ -279,6 +297,9 @@ export default function AdminAteliersPage() {
                   ))}
                   <td className="px-4 py-3 text-sm text-gray-600">
                     {coffretsById.get(atelier.coffret_id) ? coffretName(coffretsById.get(atelier.coffret_id)!) : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-600">
+                    {atelier.volume_ml != null ? `${atelier.volume_ml} ml` : '—'}
                   </td>
                   <td className="px-4 py-3">
                     <button
