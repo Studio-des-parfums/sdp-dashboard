@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { customersApi, ordersApi } from '../../api/ocrClient'
+import { customersApi, ordersApi, formulasApi } from '../../api/ocrClient'
 import { useToast } from '../../components/ui/Toast'
 import { ConfirmModal } from '../../components/ui/Modal'
 import { Button } from '../../components/ui/Button'
@@ -32,6 +32,7 @@ interface Formula {
   id: number
   reference?: string
   perfume_name?: string
+  file_id?: number
 }
 
 interface CustomerDetailsPageProps {
@@ -53,6 +54,7 @@ export default function CustomerDetailsPage({ customerId, onBack, onCustomerDele
   const [isEditing, setIsEditing] = useState(false)
   const [editForm, setEditForm] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
+  const [generatingPdfId, setGeneratingPdfId] = useState<number | null>(null)
 
   useEffect(() => {
     customersApi.getById(customerId)
@@ -121,6 +123,19 @@ export default function CustomerDetailsPage({ customerId, onBack, onCustomerDele
 
   const handleFormChange = (field: string, value: string) => {
     setEditForm(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleGeneratePdf = async (formula: Formula) => {
+    setGeneratingPdfId(formula.id)
+    try {
+      const updated = await formulasApi.generatePdf(formula.id)
+      setFormulas(prev => prev.map(f => (f.id === formula.id ? { ...f, file_id: updated.file_id } : f)))
+      showSuccess('Fiche PDF générée')
+    } catch {
+      showError('Erreur', 'Impossible de générer la fiche PDF')
+    } finally {
+      setGeneratingPdfId(null)
+    }
   }
 
   const statusBadge = (status: string) => {
@@ -244,13 +259,35 @@ export default function CustomerDetailsPage({ customerId, onBack, onCustomerDele
         ) : (
           <div className="flex flex-wrap gap-2">
             {formulas.map(f => (
-              <button
+              <div
                 key={f.id}
-                onClick={() => onOpenFormula(f.id)}
-                className="text-xs bg-white hover:bg-indigo-600/20 text-gray-600 hover:text-indigo-600 border border-gray-300 hover:border-indigo-500/30 px-3 py-1.5 rounded-lg transition-colors"
+                className="flex items-center gap-1 bg-white border border-gray-300 hover:border-indigo-500/30 rounded-lg transition-colors"
               >
-                🔬 {f.reference || `Formule #${f.id}`}
-              </button>
+                <button
+                  onClick={() => onOpenFormula(f.id)}
+                  className="text-xs text-gray-600 hover:text-indigo-600 pl-3 pr-2 py-1.5"
+                >
+                  🔬 {f.reference || `Formule #${f.id}`}
+                </button>
+                {!f.file_id && (
+                  <>
+                    <span
+                      title="Aucune fiche associée (formule probablement créée digitalement)"
+                      className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded"
+                    >
+                      Aucune fiche
+                    </span>
+                    <button
+                      onClick={() => handleGeneratePdf(f)}
+                      disabled={generatingPdfId === f.id}
+                      title="Générer et associer une fiche PDF à cette formule"
+                      className="text-xs text-indigo-600 hover:text-indigo-600 pl-1 pr-3 py-1.5 disabled:opacity-50"
+                    >
+                      {generatingPdfId === f.id ? '⏳' : '⬇️'}
+                    </button>
+                  </>
+                )}
+              </div>
             ))}
           </div>
         )}

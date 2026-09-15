@@ -282,6 +282,12 @@ export const formulasApi = {
     return handleResponse(response)
   },
   getThumbnailUrl: (formulaId: number) => `${OCR_API_URL}/api/v1/formulas/${formulaId}/file/thumbnail`,
+  generatePdf: async (formulaId: number) => {
+    const response = await fetch(`${OCR_API_URL}/api/v1/formulas/${formulaId}/pdf`, {
+      method: 'POST',
+    })
+    return handleResponse(response)
+  },
 }
 
 export const filesApi = {

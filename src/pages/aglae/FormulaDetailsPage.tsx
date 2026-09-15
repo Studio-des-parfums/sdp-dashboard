@@ -27,6 +27,7 @@ interface Order {
   status: string
 }
 
+
 interface FormulaDetailsPageProps {
   formulaId: number
   customerId: number
@@ -126,6 +127,7 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
   const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null)
   const [orders, setOrders] = useState<Order[]>([])
   const [ordersLoading, setOrdersLoading] = useState(false)
+  const [generatingPdf, setGeneratingPdf] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -159,6 +161,20 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
     const el = e.currentTarget
     if (el.naturalWidth > 0 && el.naturalHeight > 0) {
       setNaturalSize({ w: el.naturalWidth, h: el.naturalHeight })
+    }
+  }
+
+  const handleGeneratePdf = async () => {
+    if (!formula) return
+    setGeneratingPdf(true)
+    try {
+      const updated = await formulasApi.generatePdf(formula.id)
+      setFormula(prev => (prev ? { ...prev, file_id: updated.file_id } : prev))
+      showSuccess('Fiche PDF générée')
+    } catch {
+      showError('Erreur', 'Impossible de générer la fiche PDF')
+    } finally {
+      setGeneratingPdf(false)
     }
   }
 
@@ -444,7 +460,13 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
             ) : (
               <div className="flex flex-col items-center justify-center h-32 text-gray-600">
                 <span className="text-2xl mb-2">📄</span>
-                <p className="text-sm">Aucun document associé</p>
+                <p className="text-sm mb-3">Aucun document associé</p>
+                <p className="text-xs text-gray-500 mb-3 text-center">
+                  Cette formule a probablement été créée digitalement.<br />Vous pouvez générer une fiche PDF qui sera associée à cette formule.
+                </p>
+                <Button size="sm" variant="secondary" onClick={handleGeneratePdf} loading={generatingPdf}>
+                  {generatingPdf ? 'Génération...' : '📄 Générer la fiche PDF'}
+                </Button>
               </div>
             )}
           </div>

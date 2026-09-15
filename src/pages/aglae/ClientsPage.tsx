@@ -40,6 +40,14 @@ interface Pagination {
 
 const YEARS = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i)
 const MONTHS = ['', 'janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
+const EMPTY_FIELD_OPTIONS: { value: string; label: string }[] = [
+  { value: 'email', label: 'Email' },
+  { value: 'phone', label: 'Téléphone' },
+  { value: 'first_name', label: 'Prénom' },
+  { value: 'last_name', label: 'Nom' },
+  { value: 'country', label: 'Pays' },
+  { value: 'city', label: 'Ville' },
+]
 
 export default function ClientsPage({
   onOpenCustomer,
@@ -64,6 +72,9 @@ export default function ClientsPage({
   const [filterYear, setFilterYear] = useState('')
   const [filterMonth, setFilterMonth] = useState('')
   const [filterVerified, setFilterVerified] = useState('')
+  const [filterEmptyFields, setFilterEmptyFields] = useState<Set<string>>(new Set())
+  const [emptyFieldsOpen, setEmptyFieldsOpen] = useState(false)
+  const emptyFieldsRef = useRef<HTMLDivElement>(null)
   const [showFilters, setShowFilters] = useState(true)
   const [pendingReviews, setPendingReviews] = useState(0)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>()
@@ -99,6 +110,7 @@ export default function ClientsPage({
       if (filterYear) params.set('year', filterYear)
       if (filterMonth) params.set('month', filterMonth)
       if (filterVerified) params.set('verified', filterVerified)
+      if (filterEmptyFields.size > 0) params.set('empty_fields', Array.from(filterEmptyFields).join(','))
       const data = await customersApi.search(params.toString())
       const items = data.customers || data.results || data.data || data.items || []
       setCustomers(Array.isArray(items) ? items : [])
@@ -108,7 +120,7 @@ export default function ClientsPage({
     } finally {
       setLoading(false)
     }
-  }, [debouncedSearch, pagination.pageSize, filterCountry, filterYear, filterMonth, filterVerified])
+  }, [debouncedSearch, pagination.pageSize, filterCountry, filterYear, filterMonth, filterVerified, filterEmptyFields])
 
   useEffect(() => {
     customersApi.getCountries().then(setAllCountries).catch(() => {})
@@ -123,6 +135,26 @@ export default function ClientsPage({
       .then(data => setPendingReviews(data.total ?? data.count ?? 0))
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (!emptyFieldsOpen) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (emptyFieldsRef.current && !emptyFieldsRef.current.contains(e.target as Node)) {
+        setEmptyFieldsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [emptyFieldsOpen])
+
+  const toggleEmptyField = (field: string) => {
+    setFilterEmptyFields(prev => {
+      const next = new Set(prev)
+      if (next.has(field)) next.delete(field)
+      else next.add(field)
+      return next
+    })
+  }
 
   const handleSelectAll = () => {
     if (selectAll) {
@@ -313,8 +345,41 @@ export default function ClientsPage({
                 </select>
               </div>
             </div>
+            <div className="relative" ref={emptyFieldsRef}>
+              <label className="text-xs text-gray-500 mb-1.5 block">Champs manquants (au moins un des champs sélectionnés est vide)</label>
+              <button
+                type="button"
+                onClick={() => setEmptyFieldsOpen(o => !o)}
+                className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-left text-gray-900 outline-none focus:border-indigo-500 transition-colors flex items-center justify-between"
+              >
+                <span className={filterEmptyFields.size === 0 ? 'text-gray-500' : ''}>
+                  {filterEmptyFields.size === 0
+                    ? 'Aucun'
+                    : `${filterEmptyFields.size} champ${filterEmptyFields.size > 1 ? 's' : ''} sélectionné${filterEmptyFields.size > 1 ? 's' : ''}`}
+                </span>
+                <span className={`text-gray-500 transition-transform ${emptyFieldsOpen ? 'rotate-180' : ''}`}>▾</span>
+              </button>
+              {emptyFieldsOpen && (
+                <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg py-1">
+                  {EMPTY_FIELD_OPTIONS.map(opt => (
+                    <label
+                      key={opt.value}
+                      className="flex items-center gap-2 px-3 py-2 text-sm text-gray-900 hover:bg-gray-50 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={filterEmptyFields.has(opt.value)}
+                        onChange={() => toggleEmptyField(opt.value)}
+                        className="accent-indigo-500"
+                      />
+                      {opt.label}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="flex justify-end gap-2 pt-1">
-              <Button variant="secondary" size="sm" onClick={() => { setFilterCountry(''); setFilterYear(''); setFilterMonth(''); setFilterVerified(''); setSearch(''); }}>Réinitialiser</Button>
+              <Button variant="secondary" size="sm" onClick={() => { setFilterCountry(''); setFilterYear(''); setFilterMonth(''); setFilterVerified(''); setFilterEmptyFields(new Set()); setSearch(''); }}>Réinitialiser</Button>
             </div>
           </>
         )}

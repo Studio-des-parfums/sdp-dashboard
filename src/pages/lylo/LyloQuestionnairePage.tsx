@@ -137,6 +137,10 @@ export default function LyloQuestionnairePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingChoiceId, setUploadingChoiceId] = useState<number | null>(null);
 
+  const [editingChoiceId, setEditingChoiceId] = useState<number | null>(null);
+  const [editingChoiceText, setEditingChoiceText] = useState("");
+  const [savingChoiceId, setSavingChoiceId] = useState<number | null>(null);
+
   const refreshQuestions = useCallback(async () => {
     const data = await apiFetch(`/catalog/questions?language=${langFilter}&active_only=false`);
     setQuestions(Array.isArray(data) ? (data as Question[]) : []);
@@ -405,6 +409,40 @@ export default function LyloQuestionnairePage() {
     }
   }
 
+  function startEditChoice(choice: Choice) {
+    setEditingChoiceId(choice.id);
+    setEditingChoiceText(choice.text);
+  }
+
+  function cancelEditChoice() {
+    setEditingChoiceId(null);
+    setEditingChoiceText("");
+  }
+
+  async function saveEditChoice(choiceId: number) {
+    const text = editingChoiceText.trim();
+    if (!text) return;
+    setSavingChoiceId(choiceId);
+    try {
+      await apiFetch(`/catalog/choices/${choiceId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ text }),
+      });
+      if (selectedQ) {
+        const updated = await apiFetch(`/catalog/questions/${selectedQ.id}`);
+        setSelectedQ(updated as Question);
+      }
+      await refreshQuestions();
+      await refreshGroups();
+      setEditingChoiceId(null);
+      setEditingChoiceText("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erreur inconnue");
+    } finally {
+      setSavingChoiceId(null);
+    }
+  }
+
   async function deleteChoice(choiceId: number) {
     setIsBusy(true);
     try {
@@ -446,6 +484,8 @@ export default function LyloQuestionnairePage() {
     setSelectedGroupIds(question.groups.map((group) => group.id));
     setNewChoiceText("");
     setNewChoiceLang(question.language as "fr" | "en");
+    setEditingChoiceId(null);
+    setEditingChoiceText("");
     setIsDetailOpen(true);
   }
 
@@ -896,38 +936,82 @@ export default function LyloQuestionnairePage() {
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <p className="break-words text-sm font-medium text-gray-900">{choice.text}</p>
-                        <p className="text-xs text-gray-600">{choice.language.toUpperCase()}</p>
+                        {editingChoiceId === choice.id ? (
+                          <Input
+                            value={editingChoiceText}
+                            onChange={(e) => setEditingChoiceText(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                void saveEditChoice(choice.id);
+                              }
+                              if (e.key === "Escape") {
+                                e.preventDefault();
+                                cancelEditChoice();
+                              }
+                            }}
+                            autoFocus
+                          />
+                        ) : (
+                          <p className="break-words text-sm font-medium text-gray-900">{choice.text}</p>
+                        )}
+                        <p className="mt-1 text-xs text-gray-600">{choice.language.toUpperCase()}</p>
                       </div>
                     </div>
 
                     <div className="mt-2 flex items-center justify-end gap-2">
-                      <input
-                        ref={uploadingChoiceId === choice.id ? fileInputRef : undefined}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        id={`file-${choice.id}`}
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (file) await uploadImage(choice.id, file);
-                          e.target.value = "";
-                        }}
-                      />
-                      <label
-                        htmlFor={`file-${choice.id}`}
-                        className={`cursor-pointer rounded-lg border border-gray-200 px-2 py-1 text-xs text-gray-500 hover:bg-gray-100/60 ${
-                          uploadingChoiceId === choice.id ? "opacity-50" : ""
-                        }`}
-                      >
-                        {uploadingChoiceId === choice.id ? "Upload..." : choice.image_url ? "Changer image" : "+ Image"}
-                      </label>
-                      <button
-                        onClick={() => deleteChoice(choice.id)}
-                        className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50/30"
-                      >
-                        Supprimer
-                      </button>
+                      {editingChoiceId === choice.id ? (
+                        <>
+                          <button
+                            onClick={cancelEditChoice}
+                            className="rounded-lg border border-gray-200 px-2 py-1 text-xs text-gray-500 hover:bg-gray-100/60"
+                          >
+                            Annuler
+                          </button>
+                          <button
+                            onClick={() => saveEditChoice(choice.id)}
+                            disabled={savingChoiceId === choice.id || !editingChoiceText.trim()}
+                            className="rounded-lg border border-indigo-500 bg-indigo-600/10 px-2 py-1 text-xs text-indigo-600 hover:bg-indigo-600/20 disabled:opacity-50"
+                          >
+                            {savingChoiceId === choice.id ? "..." : "Enregistrer"}
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <input
+                            ref={uploadingChoiceId === choice.id ? fileInputRef : undefined}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            id={`file-${choice.id}`}
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (file) await uploadImage(choice.id, file);
+                              e.target.value = "";
+                            }}
+                          />
+                          <label
+                            htmlFor={`file-${choice.id}`}
+                            className={`cursor-pointer rounded-lg border border-gray-200 px-2 py-1 text-xs text-gray-500 hover:bg-gray-100/60 ${
+                              uploadingChoiceId === choice.id ? "opacity-50" : ""
+                            }`}
+                          >
+                            {uploadingChoiceId === choice.id ? "Upload..." : choice.image_url ? "Changer image" : "+ Image"}
+                          </label>
+                          <button
+                            onClick={() => startEditChoice(choice)}
+                            className="rounded-lg border border-gray-200 px-2 py-1 text-xs text-gray-500 hover:bg-gray-100/60"
+                          >
+                            Modifier
+                          </button>
+                          <button
+                            onClick={() => deleteChoice(choice.id)}
+                            className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50/30"
+                          >
+                            Supprimer
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
