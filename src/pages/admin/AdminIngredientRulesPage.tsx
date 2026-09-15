@@ -20,7 +20,16 @@ type Note = {
   id: number
   type: 'top' | 'heart' | 'base' | 'booster'
   translations: Record<string, string>
-  box_sets: string[] | null
+  coffret_ids: number[]
+}
+
+type Coffret = {
+  id: number
+  translations: Record<string, string>
+}
+
+function coffretName(coffret: Coffret): string {
+  return coffret.translations.fr || Object.values(coffret.translations)[0] || `#${coffret.id}`
 }
 
 type RuleType = 'incompatibility' | 'max_dosage' | 'recommendation' | 'note_count' | 'group_limit'
@@ -33,7 +42,7 @@ type Rule = {
   max_ml: number | null
   max_choices: number | null
   bottle_sizes: string[]
-  box_set: string | null
+  box_set_id: number | null
   intensity: Intensity
   min_top: number | null
   max_top: number | null
@@ -84,7 +93,7 @@ function emptyForm() {
     max_ml: '',
     max_choices: '',
     bottle_sizes: [] as string[],
-    box_set: '',
+    box_set_id: 0,
     intensity: 'toutes' as Intensity,
     note: '',
     target_ingredient_ids: [] as number[],
@@ -240,12 +249,12 @@ function noteCountPayload(form: Form) {
 export default function AdminIngredientRulesPage({ onBack }: { onBack: () => void }) {
   const [notes, setNotes] = useState<Note[]>([])
   const [rules, setRules] = useState<Rule[]>([])
-  const [boxSets, setBoxSets] = useState<string[]>([])
+  const [coffrets, setCoffrets] = useState<Coffret[]>([])
   const [isBusy, setIsBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<RuleType | ''>('')
-  const [boxSetFilter, setBoxSetFilter] = useState('')
+  const [boxSetFilter, setBoxSetFilter] = useState<number | ''>('')
   const [intensityFilter, setIntensityFilter] = useState<Intensity | ''>('')
 
   const [isCreateOpen, setIsCreateOpen] = useState(false)
@@ -258,14 +267,14 @@ export default function AdminIngredientRulesPage({ onBack }: { onBack: () => voi
     setError(null)
     setIsBusy(true)
     try {
-      const [notesData, rulesData, boxSetsData] = await Promise.all([
+      const [notesData, rulesData, coffretsData] = await Promise.all([
         apiFetch('/ingredients?active_only=false'),
         apiFetch('/ingredient-rules'),
-        apiFetch('/box-sets'),
+        apiFetch('/coffrets'),
       ])
       setNotes(Array.isArray(notesData) ? (notesData as Note[]) : [])
       setRules(Array.isArray(rulesData) ? (rulesData as Rule[]) : [])
-      setBoxSets(Array.isArray(boxSetsData) ? (boxSetsData as { name: string }[]).map((b) => b.name) : [])
+      setCoffrets(Array.isArray(coffretsData) ? (coffretsData as Coffret[]) : [])
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur inconnue')
     } finally {
@@ -276,6 +285,7 @@ export default function AdminIngredientRulesPage({ onBack }: { onBack: () => voi
   useEffect(() => { void refresh() }, [])
 
   const notesById = useMemo(() => new Map(notes.map((n) => [n.id, n])), [notes])
+  const coffretsById = useMemo(() => new Map(coffrets.map((c) => [c.id, c])), [coffrets])
 
   function noteById(id: number | null | undefined): Note | undefined {
     return id != null ? notesById.get(id) : undefined
@@ -294,7 +304,7 @@ export default function AdminIngredientRulesPage({ onBack }: { onBack: () => voi
   const filtered = useMemo(() => {
     return rules.filter((r) => {
       if (typeFilter && r.rule_type !== typeFilter) return false
-      if (boxSetFilter && r.box_set !== boxSetFilter) return false
+      if (boxSetFilter && r.box_set_id !== boxSetFilter) return false
       if (intensityFilter && r.intensity !== intensityFilter && r.intensity !== 'toutes') return false
       const q = search.trim().toLowerCase()
       if (!q) return true
@@ -337,7 +347,7 @@ export default function AdminIngredientRulesPage({ onBack }: { onBack: () => voi
           max_ml: createForm.rule_type === 'max_dosage' ? Number(createForm.max_ml) : null,
           max_choices: createForm.rule_type === 'group_limit' ? Number(createForm.max_choices) : null,
           bottle_sizes: createForm.bottle_sizes,
-          box_set: createForm.box_set || null,
+          box_set_id: createForm.box_set_id || null,
           intensity: createForm.intensity,
           note: createForm.note.trim() || null,
           target_ingredient_ids: createForm.rule_type !== 'note_count' ? createForm.target_ingredient_ids : [],
@@ -362,7 +372,7 @@ export default function AdminIngredientRulesPage({ onBack }: { onBack: () => voi
       max_ml: rule.max_ml != null ? String(rule.max_ml) : '',
       max_choices: rule.max_choices != null ? String(rule.max_choices) : '',
       bottle_sizes: rule.bottle_sizes,
-      box_set: rule.box_set ?? '',
+      box_set_id: rule.box_set_id ?? 0,
       intensity: rule.intensity,
       note: rule.note ?? '',
       target_ingredient_ids: rule.target_ingredient_ids,
@@ -387,7 +397,7 @@ export default function AdminIngredientRulesPage({ onBack }: { onBack: () => voi
           max_ml: editForm.rule_type === 'max_dosage' ? Number(editForm.max_ml) : null,
           max_choices: editForm.rule_type === 'group_limit' ? Number(editForm.max_choices) : null,
           bottle_sizes: editForm.bottle_sizes,
-          box_set: editForm.box_set || null,
+          box_set_id: editForm.box_set_id || null,
           intensity: editForm.intensity,
           note: editForm.note.trim() || null,
           is_active: selected.is_active,
@@ -434,20 +444,20 @@ export default function AdminIngredientRulesPage({ onBack }: { onBack: () => voi
   function FormFields({ form, setForm }: { form: Form; setForm: (f: Form) => void }) {
     // Les notes d'un coffret sont différentes de celles d'un autre : une fois
     // le coffret choisi, on ne propose plus que ses notes dans les sélecteurs.
-    const scopedNotes = form.box_set ? notes.filter((n) => n.box_sets?.includes(form.box_set)) : notes
+    const scopedNotes = form.box_set_id ? notes.filter((n) => n.coffret_ids.includes(form.box_set_id)) : notes
 
     return (
       <div className="space-y-3">
         <div>
           <label className="text-xs text-gray-600 mb-1 block">Coffret <span className="font-normal">(vide = toutes les notes)</span></label>
           <select
-            value={form.box_set}
-            onChange={(e) => setForm({ ...form, box_set: e.target.value, source_ingredient_id: 0, target_ingredient_ids: [] })}
+            value={form.box_set_id || ''}
+            onChange={(e) => setForm({ ...form, box_set_id: Number(e.target.value), source_ingredient_id: 0, target_ingredient_ids: [] })}
             className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
           >
             <option value="">— Tous les coffrets —</option>
-            {boxSets.map((bs) => (
-              <option key={bs} value={bs}>{bs}</option>
+            {coffrets.map((c) => (
+              <option key={c.id} value={c.id}>{coffretName(c)}</option>
             ))}
           </select>
         </div>
@@ -662,10 +672,10 @@ export default function AdminIngredientRulesPage({ onBack }: { onBack: () => voi
           <option value="note_count">Nombre de notes</option>
           <option value="group_limit">Limite de choix</option>
         </select>
-        <select value={boxSetFilter} onChange={(e) => setBoxSetFilter(e.target.value)} className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900">
+        <select value={boxSetFilter} onChange={(e) => setBoxSetFilter(e.target.value ? Number(e.target.value) : '')} className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900">
           <option value="">Tous coffrets</option>
-          {boxSets.map((bs) => (
-            <option key={bs} value={bs}>{bs}</option>
+          {coffrets.map((c) => (
+            <option key={c.id} value={c.id}>{coffretName(c)}</option>
           ))}
         </select>
         <select value={intensityFilter} onChange={(e) => setIntensityFilter(e.target.value as Intensity | '')} className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900">
@@ -706,7 +716,9 @@ export default function AdminIngredientRulesPage({ onBack }: { onBack: () => voi
                   <td className="px-4 py-3">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${RULE_TYPE_STYLE[rule.rule_type]}`}>{RULE_TYPE_LABELS[rule.rule_type]}</span>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{rule.box_set || <span className="text-gray-400 italic">Tous</span>}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600">
+                    {rule.box_set_id ? (coffretsById.get(rule.box_set_id) ? coffretName(coffretsById.get(rule.box_set_id)!) : '—') : <span className="text-gray-400 italic">Tous</span>}
+                  </td>
                   <td className="px-4 py-3 text-sm text-gray-600">{INTENSITY_LABELS[rule.intensity]}</td>
                   <td className="px-4 py-3 text-sm text-gray-600">
                     {rule.bottle_sizes.length > 0 ? rule.bottle_sizes.join(', ') : <span className="text-gray-400 italic">Toutes</span>}

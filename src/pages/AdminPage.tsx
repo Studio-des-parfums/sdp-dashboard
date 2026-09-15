@@ -6,8 +6,9 @@ import { api } from '../api/client'
 import { useToast } from '../components/ui/Toast'
 import type { Project } from '../types'
 import AdminNotesPage from './admin/AdminNotesPage'
+import AdminAteliersPage from './admin/AdminAteliersPage'
 
-type Tab = 'projects' | 'users' | 'roles' | 'tickets' | 'notes'
+type Tab = 'projects' | 'users' | 'roles' | 'tickets' | 'notes' | 'ateliers'
 
 const RESOURCES = ['dashboard', 'lylo', 'aglae', 'ninno', 'users'] as const
 const ACTIONS = ['view', 'edit'] as const
@@ -32,6 +33,7 @@ export default function AdminPage({ embedded, section, onSectionChange: _onSecti
         {activeTab === 'roles' && <RolesTab />}
         {activeTab === 'tickets' && <TicketsTab />}
         {activeTab === 'notes' && <AdminNotesPage />}
+        {activeTab === 'ateliers' && <AdminAteliersPage />}
       </div>
     )
   }
@@ -44,7 +46,7 @@ export default function AdminPage({ embedded, section, onSectionChange: _onSecti
           <span className="font-bold text-sm truncate text-gray-900">Administration</span>
         </div>
         <nav className="flex-1 py-2">
-          {([['projects', 'Projets'], ['users', 'Utilisateurs'], ['roles', 'Rôles'], ['tickets', 'Tickets'], ['notes', 'Notes & boosters']] as [Tab, string][]).map(([id, label]) => (
+          {([['projects', 'Projets'], ['users', 'Utilisateurs'], ['roles', 'Rôles'], ['tickets', 'Tickets'], ['notes', 'Coffrets et Notes'], ['ateliers', 'Ateliers']] as [Tab, string][]).map(([id, label]) => (
             <button
               key={id}
               onClick={() => setTab(id)}
@@ -64,6 +66,7 @@ export default function AdminPage({ embedded, section, onSectionChange: _onSecti
         {activeTab === 'roles' && <RolesTab />}
         {activeTab === 'tickets' && <TicketsTab />}
         {activeTab === 'notes' && <AdminNotesPage />}
+        {activeTab === 'ateliers' && <AdminAteliersPage />}
       </main>
     </div>
   )
