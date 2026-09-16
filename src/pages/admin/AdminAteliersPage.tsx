@@ -3,9 +3,10 @@ import { Plus, Trash2, X as XIcon } from 'lucide-react'
 
 // Ateliers organisés par l'entreprise, chacun rattaché à un coffret précis.
 
+// Contrairement aux notes/coffrets (bilingues FR/EN), les ateliers ne sont
+// saisis qu'en français — pas de public anglophone visé pour l'instant.
 const LANGUAGES: { code: string; label: string }[] = [
   { code: 'fr', label: 'Français' },
-  { code: 'en', label: 'English' },
 ]
 
 type Atelier = {
