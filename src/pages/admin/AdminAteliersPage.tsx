@@ -13,6 +13,7 @@ type Atelier = {
   id: number
   coffret_id: number
   description: string | null
+  image_url: string | null
   volume_ml: number | null
   is_active: boolean
   translations: Record<string, string>
@@ -52,6 +53,21 @@ async function apiFetch(path: string, init?: RequestInit) {
     throw new Error(`HTTP ${res.status}${details ? ` — ${details}` : ''}`)
   }
   if (res.status === 204) return null
+  return res.json() as Promise<unknown>
+}
+
+// Pas de Content-Type explicite : le navigateur doit fixer le boundary
+// multipart lui-même, ce qu'apiFetch (Content-Type: application/json fixe)
+// empêche.
+async function apiUpload(path: string, formData: FormData) {
+  const res = await fetch(`${API_URL}${path.startsWith('/') ? '' : '/'}${path}`, {
+    method: 'POST',
+    body: formData,
+  })
+  if (!res.ok) {
+    const details = await res.text().catch(() => '')
+    throw new Error(`HTTP ${res.status}${details ? ` — ${details}` : ''}`)
+  }
   return res.json() as Promise<unknown>
 }
 
@@ -222,6 +238,36 @@ export default function AdminAteliersPage() {
     }
   }
 
+  async function uploadImage(file: File) {
+    if (!selected) return
+    setIsBusy(true)
+    try {
+      const formData = new FormData()
+      formData.append('image', file)
+      const updated = await apiUpload(`/ateliers/${selected.id}/image`, formData) as Atelier
+      setSelected(updated)
+      await refresh()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur inconnue')
+    } finally {
+      setIsBusy(false)
+    }
+  }
+
+  async function removeImage() {
+    if (!selected) return
+    setIsBusy(true)
+    try {
+      await apiFetch(`/ateliers/${selected.id}/image`, { method: 'DELETE' })
+      setSelected((prev) => (prev ? { ...prev, image_url: null } : prev))
+      await refresh()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur inconnue')
+    } finally {
+      setIsBusy(false)
+    }
+  }
+
   async function toggleActive(atelier: Atelier) {
     setIsBusy(true)
     try {
@@ -272,6 +318,7 @@ export default function AdminAteliersPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50/40">
               <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Image</th>
                 {LANGUAGES.map((lang) => (
                   <th key={lang.code} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Nom ({lang.code.toUpperCase()})</th>
                 ))}
@@ -283,13 +330,20 @@ export default function AdminAteliersPage() {
             <tbody className="divide-y divide-gray-200">
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={3 + LANGUAGES.length} className="px-4 py-10 text-center text-sm text-gray-500">
+                  <td colSpan={4 + LANGUAGES.length} className="px-4 py-10 text-center text-sm text-gray-500">
                     {isBusy ? 'Chargement...' : 'Aucun atelier.'}
                   </td>
                 </tr>
               )}
               {filtered.map((atelier) => (
                 <tr key={atelier.id} className="cursor-pointer transition-colors hover:bg-gray-100/60" onClick={() => openDetail(atelier)}>
+                  <td className="px-4 py-3">
+                    {atelier.image_url ? (
+                      <img src={atelier.image_url} alt="" className="h-10 w-10 rounded-lg object-cover border border-gray-200" />
+                    ) : (
+                      <div className="h-10 w-10 rounded-lg bg-gray-200" />
+                    )}
+                  </td>
                   {LANGUAGES.map((lang) => (
                     <td key={lang.code} className="px-4 py-3">
                       <p className="text-sm font-medium text-gray-900">{atelier.translations[lang.code] || <span className="text-gray-400 italic font-normal">—</span>}</p>
@@ -343,6 +397,26 @@ export default function AdminAteliersPage() {
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">Atelier — {displayName(selected)}</h2>
               <button onClick={() => setSelected(null)} className="text-gray-600 hover:text-gray-900"><XIcon size={18} /></button>
+            </div>
+            <div>
+              <label className="text-xs text-gray-600 mb-1 block">Image</label>
+              {selected.image_url ? (
+                <div className="flex items-center gap-3">
+                  <img src={selected.image_url} alt={displayName(selected)} className="h-20 w-20 rounded-lg object-cover border border-gray-300" />
+                  <div className="flex gap-2">
+                    <label className="cursor-pointer bg-white hover:bg-gray-200 text-gray-900 px-3 py-1.5 rounded-lg text-xs transition-colors border border-gray-300">
+                      Remplacer
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadImage(f); e.target.value = '' }} />
+                    </label>
+                    <button onClick={removeImage} className="bg-red-600/20 hover:bg-red-600/30 text-red-700 px-3 py-1.5 rounded-lg text-xs transition-colors">Retirer</button>
+                  </div>
+                </div>
+              ) : (
+                <label className="inline-block cursor-pointer bg-white hover:bg-gray-200 text-gray-900 px-3 py-2 rounded-lg text-sm transition-colors border border-gray-300">
+                  Choisir une image
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadImage(f); e.target.value = '' }} />
+                </label>
+              )}
             </div>
             <AtelierFormFields form={editForm} setForm={setEditForm} coffrets={coffrets} />
             <div className="flex gap-2 pt-2">
