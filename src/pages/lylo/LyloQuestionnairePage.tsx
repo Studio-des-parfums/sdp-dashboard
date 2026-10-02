@@ -104,30 +104,35 @@ function sortQuestions(items: Question[], mode: SortMode) {
   return next;
 }
 
+// Le questionnaire est saisi uniquement en français — les autres langues supportées
+// (en/es/de/ar/ru) sont générées automatiquement par traduction côté backend à la création
+// d'une question ou d'un choix (voir POST /catalog/questions et /catalog/questions/:id/choices).
+const QUESTIONNAIRE_LANGUAGE = "fr" as const;
+
 export default function LyloQuestionnairePage() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [groups, setGroups] = useState<QuestionGroup[]>([]);
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [langFilter, setLangFilter] = useState<"fr" | "en">("fr");
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("text_asc");
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newText, setNewText] = useState("");
-  const [newLang, setNewLang] = useState<"fr" | "en">("fr");
   const [newGroupIds, setNewGroupIds] = useState<number[]>([]);
   const [draftChoices, setDraftChoices] = useState<DraftChoice[]>([]);
   const [draftChoiceText, setDraftChoiceText] = useState("");
+  const [isTranslating, setIsTranslating] = useState(false);
 
   const [selectedQ, setSelectedQ] = useState<Question | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [editText, setEditText] = useState("");
   const [selectedGroupIds, setSelectedGroupIds] = useState<number[]>([]);
+  const [translations, setTranslations] = useState<Question[]>([]);
+  const [loadingTranslations, setLoadingTranslations] = useState(false);
 
   const [newChoiceText, setNewChoiceText] = useState("");
-  const [newChoiceLang, setNewChoiceLang] = useState<"fr" | "en">("fr");
   const [addingChoice, setAddingChoice] = useState(false);
 
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
@@ -142,9 +147,9 @@ export default function LyloQuestionnairePage() {
   const [savingChoiceId, setSavingChoiceId] = useState<number | null>(null);
 
   const refreshQuestions = useCallback(async () => {
-    const data = await apiFetch(`/catalog/questions?language=${langFilter}&active_only=false`);
+    const data = await apiFetch(`/catalog/questions?language=${QUESTIONNAIRE_LANGUAGE}&active_only=false`);
     setQuestions(Array.isArray(data) ? (data as Question[]) : []);
-  }, [langFilter]);
+  }, []);
 
   const refreshGroups = useCallback(async () => {
     const data = await apiFetch("/catalog/question-groups?active_only=false");
@@ -167,10 +172,9 @@ export default function LyloQuestionnairePage() {
     void refreshAll();
   }, [refreshAll]);
 
-  const visibleGroups = useMemo(
-    () => groups.filter((group) => group.questions.some((question) => question.language === langFilter)),
-    [groups, langFilter]
-  );
+  // Un groupe reste visible même sans question française (ex: juste créé) — ne filtrer que
+  // les questions qu'il contient, pas le groupe lui-même, sinon un groupe vide "disparaît".
+  const visibleGroups = groups;
 
   const selectedGroup = useMemo(
     () => visibleGroups.find((group) => group.id === selectedGroupId) ?? null,
@@ -258,21 +262,26 @@ export default function LyloQuestionnairePage() {
   async function createQuestion() {
     if (!newText.trim()) return;
     setIsBusy(true);
+    setIsTranslating(true);
     try {
+      // La question est créée en français ; le backend traduit automatiquement le texte et
+      // crée les questions sœurs dans toutes les autres langues supportées (en/es/de/ar/ru).
       const question = (await apiFetch("/catalog/questions", {
         method: "POST",
         body: JSON.stringify({
           text: newText.trim(),
-          language: newLang,
+          language: QUESTIONNAIRE_LANGUAGE,
           group_ids: newGroupIds,
         }),
       })) as Question;
 
       for (const draft of draftChoices) {
         if (!draft.text.trim()) continue;
+        // Idem pour chaque choix : créé en français, traduit et répliqué automatiquement
+        // sur les questions sœurs par le backend.
         const created = (await apiFetch(`/catalog/questions/${question.id}/choices`, {
           method: "POST",
-          body: JSON.stringify({ text: draft.text.trim(), language: newLang }),
+          body: JSON.stringify({ text: draft.text.trim(), language: QUESTIONNAIRE_LANGUAGE }),
         })) as Choice;
         if (draft.file) {
           const fd = new FormData();
@@ -287,6 +296,7 @@ export default function LyloQuestionnairePage() {
       setError(e instanceof Error ? e.message : "Erreur inconnue");
     } finally {
       setIsBusy(false);
+      setIsTranslating(false);
     }
   }
 
@@ -393,9 +403,11 @@ export default function LyloQuestionnairePage() {
     if (!selectedQ || !newChoiceText.trim()) return;
     setAddingChoice(true);
     try {
+      // Même logique que la création : le choix est ajouté en français et le backend crée
+      // automatiquement sa traduction sur chaque question sœur.
       await apiFetch(`/catalog/questions/${selectedQ.id}/choices`, {
         method: "POST",
-        body: JSON.stringify({ text: newChoiceText.trim(), language: newChoiceLang }),
+        body: JSON.stringify({ text: newChoiceText.trim(), language: selectedQ.language }),
       });
       setNewChoiceText("");
       const updated = await apiFetch(`/catalog/questions/${selectedQ.id}`);
@@ -483,14 +495,27 @@ export default function LyloQuestionnairePage() {
     setEditText(question.text);
     setSelectedGroupIds(question.groups.map((group) => group.id));
     setNewChoiceText("");
-    setNewChoiceLang(question.language as "fr" | "en");
     setEditingChoiceId(null);
     setEditingChoiceText("");
     setIsDetailOpen(true);
+    void loadTranslations(question.id);
+  }
+
+  async function loadTranslations(questionId: number) {
+    setTranslations([]);
+    setLoadingTranslations(true);
+    try {
+      const data = await apiFetch(`/catalog/questions/${questionId}/translations`);
+      setTranslations(Array.isArray(data) ? (data as Question[]) : []);
+    } catch {
+      // Non bloquant : l'admin peut toujours gérer la question française sans voir ses traductions.
+    } finally {
+      setLoadingTranslations(false);
+    }
   }
 
   function questionCountForGroup(group: QuestionGroup) {
-    return group.questions.filter((question) => question.language === langFilter).length;
+    return group.questions.filter((question) => question.language === QUESTIONNAIRE_LANGUAGE).length;
   }
 
   return (
@@ -500,22 +525,14 @@ export default function LyloQuestionnairePage() {
           <div>
             <h2 className="text-xl font-semibold text-gray-900">Questionnaire</h2>
             <p className="mt-1 text-sm text-gray-500">
-              Gérez les questions, leur rattachement à plusieurs groupes et l&apos;activation des groupes envoyés au front.
+              Gérez les questions en français — elles sont automatiquement traduites en anglais,
+              espagnol, allemand, arabe et russe à la création.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <select
-              value={langFilter}
-              onChange={(e) => setLangFilter(e.target.value as "fr" | "en")}
-              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900"
-            >
-              <option value="fr">Français</option>
-              <option value="en">English</option>
-            </select>
             <Button
               variant="primary"
               onClick={() => {
-                setNewLang(langFilter);
                 setNewGroupIds(selectedGroupId === null ? [] : [selectedGroupId]);
                 setIsCreateOpen(true);
               }}
@@ -746,7 +763,7 @@ export default function LyloQuestionnairePage() {
           <>
             <Button onClick={resetCreateModal}>Annuler</Button>
             <Button variant="primary" onClick={createQuestion} disabled={isBusy || !newText.trim() || newGroupIds.length === 0}>
-              {isBusy ? "Enregistrement..." : "Créer"}
+              {isTranslating ? "Traduction en cours..." : isBusy ? "Enregistrement..." : "Créer"}
             </Button>
           </>
         }
@@ -762,19 +779,7 @@ export default function LyloQuestionnairePage() {
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="q_lang">Langue</Label>
-              <select
-                id="q_lang"
-                value={newLang}
-                onChange={(e) => setNewLang(e.target.value as "fr" | "en")}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900"
-              >
-                <option value="fr">Français</option>
-                <option value="en">English</option>
-              </select>
-            </div>
+          <div className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
               <Label>Groupes</Label>
               <div className="max-h-36 space-y-2 overflow-auto rounded-lg border border-gray-200 p-3">
@@ -1030,25 +1035,43 @@ export default function LyloQuestionnairePage() {
                   }}
                   className="flex-1"
                 />
-                <div className="flex gap-2">
-                  <select
-                    value={newChoiceLang}
-                    onChange={(e) => setNewChoiceLang(e.target.value as "fr" | "en")}
-                    className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900"
-                  >
-                    <option value="fr">FR</option>
-                    <option value="en">EN</option>
-                  </select>
-                  <Button
-                    variant="primary"
-                    onClick={addChoice}
-                    disabled={addingChoice || !newChoiceText.trim()}
-                    className="flex-1 sm:flex-none"
-                  >
-                    {addingChoice ? "..." : "Ajouter"}
-                  </Button>
-                </div>
+                <Button
+                  variant="primary"
+                  onClick={addChoice}
+                  disabled={addingChoice || !newChoiceText.trim()}
+                  className="flex-1 sm:flex-none"
+                >
+                  {addingChoice ? "..." : "Ajouter"}
+                </Button>
               </div>
+              <p className="mt-2 text-xs text-gray-600">
+                Traduit et ajouté automatiquement dans les autres langues du questionnaire.
+              </p>
+            </div>
+
+            <div>
+              <h3 className="mb-3 text-sm font-semibold text-gray-900">Traductions automatiques</h3>
+              {loadingTranslations && (
+                <p className="text-sm text-gray-500">Chargement...</p>
+              )}
+              {!loadingTranslations && translations.length === 0 && (
+                <p className="text-sm text-gray-500">Aucune traduction (question créée avant l&apos;ajout de la traduction automatique).</p>
+              )}
+              {!loadingTranslations && translations.length > 0 && (
+                <div className="space-y-2">
+                  {translations.map((tr) => (
+                    <div key={tr.id} className="rounded-lg border border-gray-200 p-3">
+                      <p className="text-xs font-semibold uppercase text-gray-500">{tr.language}</p>
+                      <p className="mt-1 text-sm text-gray-900">{tr.text}</p>
+                      {tr.choices.length > 0 && (
+                        <p className="mt-1 text-xs text-gray-600">
+                          {tr.choices.map((c) => c.text).join(" · ")}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
