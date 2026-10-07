@@ -6,6 +6,11 @@ import { Button } from '../../components/ui/Button'
 
 const SECONDS_PER_PAGE = 5
 const POLL_INTERVAL = 3000
+// Une requête de polling peut échouer ponctuellement (coupure réseau, redémarrage
+// du service...) sans que le job OCR lui-même ait échoué côté serveur. On tolère
+// quelques échecs consécutifs avant d'abandonner, pour ne pas afficher une erreur
+// alors que le scan est toujours en cours.
+const MAX_CONSECUTIVE_POLL_ERRORS = 5
 
 interface QueueItem {
   id: string
@@ -48,6 +53,15 @@ export default function ExtractionPage() {
   const doneCount = queue.filter(q => q.status === 'done').length
   const errorCount = queue.filter(q => q.status === 'error').length
   const pendingCount = queue.filter(q => q.status === 'pending').length
+  const pendingItems = queue.filter(q => q.status === 'pending')
+  const totalEstimatedTime = pendingItems.reduce((sum, q) => sum + (q.estimatedTime ?? SECONDS_PER_PAGE), 0)
+
+  function formatDuration(seconds: number): string {
+    if (seconds < 60) return `${seconds}s`
+    const minutes = Math.floor(seconds / 60)
+    const remaining = seconds % 60
+    return remaining > 0 ? `${minutes}min ${remaining}s` : `${minutes}min`
+  }
 
   const addFiles = useCallback(async (files: FileList | File[]) => {
     const newItems: QueueItem[] = []
@@ -89,10 +103,13 @@ export default function ExtractionPage() {
 
   const pollJob = useCallback((jobId: string): Promise<string> => {
     return new Promise((resolve, reject) => {
+      let consecutiveErrors = 0
       const interval = setInterval(async () => {
         try {
           const res = await fetch(`${import.meta.env.VITE_OCR_API_URL || import.meta.env.VITE_API_URL}/api/v1/ocr/jobs/${jobId}`)
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
           const data = await res.json()
+          consecutiveErrors = 0
           if (data.status === 'completed' || data.status === 'done') {
             clearInterval(interval)
             resolve('done')
@@ -101,8 +118,11 @@ export default function ExtractionPage() {
             reject(new Error(data.error || 'Job failed'))
           }
         } catch {
-          clearInterval(interval)
-          reject(new Error('Polling failed'))
+          consecutiveErrors++
+          if (consecutiveErrors >= MAX_CONSECUTIVE_POLL_ERRORS) {
+            clearInterval(interval)
+            reject(new Error('Polling failed'))
+          }
         }
       }, POLL_INTERVAL)
     })
@@ -204,7 +224,12 @@ export default function ExtractionPage() {
       {queue.length > 0 && (
         <div className="bg-gray-100 border border-gray-200 rounded-xl overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-            <span className="text-sm font-medium text-gray-900">📋 File d'attente ({queue.length})</span>
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-gray-900">📋 File d'attente ({queue.length})</span>
+              {pendingCount > 0 && (
+                <span className="text-xs text-gray-500">⏱ ~{formatDuration(totalEstimatedTime)} au total</span>
+              )}
+            </div>
             <div className="flex gap-2">
               {pendingCount > 0 && (
                 <Button size="sm" onClick={processQueue} loading={processing}>
