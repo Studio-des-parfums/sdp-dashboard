@@ -1,34 +1,7 @@
 import { useState, useEffect } from 'react'
 import { customerReviewsApi, filesApi, formulasApi } from '../../api/ocrClient'
+import { fetchNoteNamesByType } from '../../api/ingredientsClient'
 import { Button } from '../../components/ui/Button'
-
-const TOP_NOTES_OPTIONS = [
-  'Bambou', 'Bergamote', 'Bergamote verte', 'Cardamome ginger', 'Citron amère', 'Citron doux',
-  "Fleur d'oranger", 'Florale fraîche', 'Freesia', 'Fruit de cassis', 'Géranium sauvage',
-  'Gingembre', 'Grenadier', 'Lavande sauvage', 'Lotus', 'Mandarine portofino', 'Note verte',
-  'Oeillet fleuri', 'Orange', 'Orange amère', 'Ozone', 'Pamplemousse', 'Poivre sichuan',
-  'Pomme', 'Rose de mai', 'Spice bang', 'Thé vert',
-]
-
-const HEART_NOTES_OPTIONS = [
-  'Cocktail', 'Concombre', 'Figue', 'Fleur de jacinthe', 'Fleur de pêche', 'Fleur de tiaré',
-  'Geranium', 'Glycine', 'Hedione', 'Jasmin musqué', 'Jasmin oriental', 'Jonquille', 'Lylibell',
-  'Mangue', 'Marine', 'Muguet musqué', 'Mure', 'Note cannelle', 'Note safran', 'Oeillet cuir',
-  'Oeillet fruité', 'Pivoine', 'Rhubarbe', 'Romarin', "Rose d'orient", 'Rose fruitée cerise',
-  'Tabac blond', 'Tabac gris', 'Tilleul', 'Violette', 'Ylang coton',
-]
-
-const BASE_NOTES_OPTIONS = [
-  'Accord musc', 'Amande', 'Ambre', 'Ambre oriental', 'Ambre vert', 'Ambreine', 'Bois ambré',
-  'Bois booster', 'Bois de cachemire', 'Bois épicé', 'Boisé ambre', 'Boisé cèdre', 'Bouquet fleuri',
-  'Cèdre', 'Chocolat au lait', 'Coco des îles', 'Cuir', 'Fève tonka', 'Fleur de jasmin',
-  'Frangipane', 'Iris', 'Lilas', 'Mousse', 'Musc blanc', 'Musc floral', 'Myrrhe encens',
-  'Note praline', 'Opoponax', "Oud d'or", 'Patchouli', "Poudre d'iris", 'Santal',
-  "Santal d'Inde", "Santal d'orient", 'Santal exotique', 'Santaline', 'Tonka', 'Tubereuse',
-  'Vanille', 'Vetiver', 'Virginia',
-]
-
-const ALL_NOTES_OPTIONS = [...TOP_NOTES_OPTIONS, ...HEART_NOTES_OPTIONS, ...BASE_NOTES_OPTIONS]
 
 interface ReviewCustomer {
   id: number
@@ -100,12 +73,21 @@ export default function CustomerReviewsPage({ onBack }: { onBack: () => void }) 
   const [previewRotation, setPreviewRotation] = useState(0)
   const [selectedFormula] = useState<ReviewFormula | null>(null)
   const [showFormulaModal, setShowFormulaModal] = useState(false)
+  const [noteOptions, setNoteOptions] = useState<{ top: string[]; heart: string[]; base: string[] }>({ top: [], heart: [], base: [] })
 
   const pageSize = 10
 
   useEffect(() => {
     fetchReviews()
   }, [currentPage, searchTerm])
+
+  useEffect(() => {
+    Promise.all([
+      fetchNoteNamesByType('top'),
+      fetchNoteNamesByType('heart'),
+      fetchNoteNamesByType('base'),
+    ]).then(([top, heart, base]) => setNoteOptions({ top, heart, base }))
+  }, [])
 
   const fetchReviews = async () => {
     setIsLoading(true)
@@ -664,17 +646,20 @@ export default function CustomerReviewsPage({ onBack }: { onBack: () => void }) 
                                     className="flex-1 bg-gray-100 border border-gray-200 rounded px-2 py-1 text-xs text-gray-900 outline-none focus:border-indigo-500"
                                   >
                                     <option value="">-- Choisir --</option>
-                                    {note.name && !ALL_NOTES_OPTIONS.includes(note.name) && (
+                                    {note.name
+                                      && !noteOptions.top.includes(note.name)
+                                      && !noteOptions.heart.includes(note.name)
+                                      && !noteOptions.base.includes(note.name) && (
                                       <option value={note.name}>{note.name}</option>
                                     )}
                                     <optgroup label="Notes de Tête">
-                                      {TOP_NOTES_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                                      {noteOptions.top.map(o => <option key={o} value={o}>{o}</option>)}
                                     </optgroup>
                                     <optgroup label="Notes de Cœur">
-                                      {HEART_NOTES_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                                      {noteOptions.heart.map(o => <option key={o} value={o}>{o}</option>)}
                                     </optgroup>
                                     <optgroup label="Notes de Fond">
-                                      {BASE_NOTES_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                                      {noteOptions.base.map(o => <option key={o} value={o}>{o}</option>)}
                                     </optgroup>
                                   </select>
                                   <input

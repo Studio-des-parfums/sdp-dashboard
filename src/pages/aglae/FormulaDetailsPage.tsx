@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { formulasApi, ordersApi, customersApi, filesApi } from '../../api/ocrClient'
+import { fetchNoteNamesByType } from '../../api/ingredientsClient'
 import { useToast } from '../../components/ui/Toast'
 import { Button } from '../../components/ui/Button'
 
@@ -34,21 +35,6 @@ interface FormulaDetailsPageProps {
   formulaId: number
   customerId: number
   onBack: () => void
-}
-
-const INGREDIENTS_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
-
-// Référentiel de notes olfactives (table `ingredients` du dashboard SDP, partagé
-// entre tous les projets) — chargé dynamiquement plutôt que codé en dur, pour
-// rester à jour avec les notes gérées dans Admin > Coffrets et Notes.
-async function fetchNoteNamesByType(ingredientType: 'top' | 'heart' | 'base'): Promise<string[]> {
-  const res = await fetch(`${INGREDIENTS_API_URL}/ingredients?type=${ingredientType}&active_only=true`)
-  if (!res.ok) return []
-  const rows = await res.json() as Array<{ translations?: Record<string, string> }>
-  return rows
-    .map(r => r.translations?.fr)
-    .filter((name): name is string => !!name && name.trim() !== '')
-    .sort((a, b) => a.localeCompare(b, 'fr'))
 }
 
 function parseQuantity(quantity: string | null | undefined): { value: number; valid: boolean } {
