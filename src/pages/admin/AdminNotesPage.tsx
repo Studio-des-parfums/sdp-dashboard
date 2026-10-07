@@ -1,15 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ListChecks, Plus, FolderPlus, Trash2, X as XIcon } from 'lucide-react'
+import { ListChecks, Plus, FolderPlus, Trash2, X as XIcon, Languages } from 'lucide-react'
 import AdminIngredientRulesPage from './AdminIngredientRulesPage'
 
 // Notes olfactives : référentiel partagé entre tous les projets (Lylo et les suivants),
 // stocké dans la base générale du dashboard SDP plutôt que dans une base propre à un projet.
 // Une note = une seule ligne, avec un nom par langue (translations) plutôt qu'une ligne
 // dupliquée par langue — évite de créer deux fois la même note pour FR et EN.
+//
+// À la création, seul le nom français est saisi : le backend traduit automatiquement
+// (OpenAI) vers les autres langues à l'enregistrement. Dans le détail d'une note
+// existante, toutes les traductions restent visibles et modifiables manuellement.
 
 const LANGUAGES: { code: string; label: string }[] = [
   { code: 'fr', label: 'Français' },
   { code: 'en', label: 'English' },
+  { code: 'pt', label: 'Português' },
+  { code: 'ru', label: 'Русский' },
+  { code: 'ar', label: 'العربية' },
+  { code: 'es', label: 'Español' },
 ]
 
 type Note = {
@@ -126,20 +134,47 @@ function NoteFormFields({
   form,
   setForm,
   coffrets,
+  mode,
+  onTranslate,
+  isTranslating,
 }: {
   form: ReturnType<typeof emptyForm>
   setForm: (f: ReturnType<typeof emptyForm>) => void
   coffrets: Coffret[]
+  mode: 'create' | 'edit'
+  onTranslate?: () => void
+  isTranslating?: boolean
 }) {
+  const visibleLanguages = mode === 'create' ? LANGUAGES.filter((l) => l.code === 'fr') : LANGUAGES
+
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-      {LANGUAGES.map((lang) => (
-        <div key={lang.code} className={LANGUAGES.length % 2 === 1 ? '' : ''}>
+      {mode === 'create' && (
+        <p className="md:col-span-2 text-xs text-gray-500 -mb-1">
+          Les autres langues (anglais, portugais, russe, arabe, espagnol) seront traduites automatiquement à l'enregistrement.
+        </p>
+      )}
+      {mode === 'edit' && (
+        <div className="md:col-span-2 flex items-center justify-between -mb-1">
+          <span className="text-xs text-gray-500">Traductions — modifiables si une traduction automatique ne convient pas.</span>
+          <button
+            type="button"
+            onClick={onTranslate}
+            disabled={isTranslating || !form.translations.fr?.trim()}
+            className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-500 disabled:opacity-50 shrink-0"
+          >
+            <Languages size={14} /> {isTranslating ? 'Traduction…' : 'Retraduire depuis le français'}
+          </button>
+        </div>
+      )}
+      {visibleLanguages.map((lang) => (
+        <div key={lang.code}>
           <label className="text-xs text-gray-600 mb-1 block">Nom ({lang.label}) {lang.code === 'fr' ? '*' : ''}</label>
           <input
             value={form.translations[lang.code] ?? ''}
             onChange={(e) => setForm({ ...form, translations: { ...form.translations, [lang.code]: e.target.value } })}
-            placeholder={lang.code === 'fr' ? 'Ex : Bergamote fraîche' : 'Ex: Fresh bergamot'}
+            placeholder={lang.code === 'fr' ? 'Ex : Bergamote fraîche' : ''}
+            dir={lang.code === 'ar' ? 'rtl' : 'ltr'}
             className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
           />
         </div>
@@ -203,6 +238,7 @@ export default function AdminNotesPage() {
 
   const [selected, setSelected] = useState<Note | null>(null)
   const [editForm, setEditForm] = useState(emptyForm())
+  const [isTranslating, setIsTranslating] = useState(false)
 
   async function refresh() {
     setError(null)
@@ -267,6 +303,23 @@ export default function AdminNotesPage() {
       setError(e instanceof Error ? e.message : 'Erreur inconnue')
     } finally {
       setIsBusy(false)
+    }
+  }
+
+  async function translateFromFrench() {
+    const fr = editForm.translations.fr?.trim()
+    if (!fr) return
+    setIsTranslating(true)
+    try {
+      const data = await apiFetch('/ingredients/translate', {
+        method: 'POST',
+        body: JSON.stringify({ name: fr }),
+      }) as { translations: Record<string, string> }
+      setEditForm({ ...editForm, translations: { ...editForm.translations, ...data.translations } })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur inconnue')
+    } finally {
+      setIsTranslating(false)
     }
   }
 
@@ -526,7 +579,7 @@ export default function AdminNotesPage() {
               <h2 className="text-lg font-semibold text-gray-900">Nouvelle note</h2>
               <button onClick={() => setIsCreateOpen(false)} className="text-gray-600 hover:text-gray-900"><XIcon size={18} /></button>
             </div>
-            <NoteFormFields form={createForm} setForm={setCreateForm} coffrets={coffrets} />
+            <NoteFormFields form={createForm} setForm={setCreateForm} coffrets={coffrets} mode="create" />
             <div className="flex gap-2 pt-2">
               <button onClick={createNote} disabled={isBusy || !hasAtLeastOneName(createForm.translations)} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50">Créer</button>
               <button onClick={() => setIsCreateOpen(false)} className="text-gray-500 hover:text-gray-900 px-4 py-2 rounded-lg text-sm transition-colors">Annuler</button>
@@ -553,7 +606,7 @@ export default function AdminNotesPage() {
                 <button onClick={() => setSelected(null)} className="text-gray-600 hover:text-gray-900"><XIcon size={18} /></button>
               </div>
             </div>
-            <NoteFormFields form={editForm} setForm={setEditForm} coffrets={coffrets} />
+            <NoteFormFields form={editForm} setForm={setEditForm} coffrets={coffrets} mode="edit" onTranslate={translateFromFrench} isTranslating={isTranslating} />
             <div className="flex gap-2 pt-2">
               <button onClick={deleteNote} className="flex items-center gap-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-700 px-4 py-2 rounded-lg text-sm transition-colors"><Trash2 size={14} /> Supprimer</button>
               <div className="flex-1" />
