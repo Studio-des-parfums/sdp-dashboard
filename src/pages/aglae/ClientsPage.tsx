@@ -178,7 +178,7 @@ export default function ClientsPage({
   const handleExportCsv = async () => {
     if (!sdpUser) { showError('Non connecté'); return }
     try {
-      await quotasApi.consumeCsvQuota(sdpUser.id)
+      await quotasApi.consumeCsvQuota(sdpUser)
     } catch (err: unknown) {
       const error = err as { status?: number; detail?: unknown; message?: string }
       if (error.status === 429) { showQuotaError(error.detail as { type?: string; message?: string } | undefined); return }

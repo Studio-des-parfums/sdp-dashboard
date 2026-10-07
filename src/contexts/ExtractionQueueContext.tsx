@@ -124,7 +124,7 @@ export function ExtractionQueueProvider({ children }: { children: ReactNode }) {
       setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'processing' } : q))
 
       try {
-        await quotasApi.consumePdfQuota(sdpUser.id)
+        await quotasApi.consumePdfQuota(sdpUser)
       } catch (err: unknown) {
         const error = err as { status?: number; detail?: unknown; message?: string }
         if (error.status === 429) {

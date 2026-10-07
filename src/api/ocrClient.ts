@@ -295,13 +295,31 @@ export const filesApi = {
   getDownloadUrl: (fileId: number) => `${OCR_API_URL}/api/v1/files/${fileId}/download`,
 }
 
+interface SdpUserIdentity {
+  id: number
+  email: string
+  first_name?: string
+  last_name?: string
+}
+
+// Les comptes du dashboard principal et ceux du backend OCR vivent dans deux
+// bases séparées avec des ids auto-incrémentés indépendants. On transmet
+// l'email (+ nom) en plus de l'id : si l'id ne correspond à rien côté OCR, le
+// backend résout/crée l'utilisateur par email plutôt que d'échouer en 404.
+function identityParams(user: SdpUserIdentity): string {
+  const params = new URLSearchParams({ email: user.email })
+  if (user.first_name) params.set('first_name', user.first_name)
+  if (user.last_name) params.set('last_name', user.last_name)
+  return params.toString()
+}
+
 export const quotasApi = {
   getUserQuotas: async (userId: number) => {
     const response = await fetch(`${OCR_API_URL}/api/v1/users/${userId}/quotas`)
     return handleResponse(response)
   },
-  consumeCsvQuota: async (userId: number) => {
-    const response = await fetch(`${OCR_API_URL}/api/v1/users/${userId}/quotas/csv/consume`, { method: 'POST' })
+  consumeCsvQuota: async (user: SdpUserIdentity) => {
+    const response = await fetch(`${OCR_API_URL}/api/v1/users/${user.id}/quotas/csv/consume?${identityParams(user)}`, { method: 'POST' })
     if (response.status === 429) {
       const error = await response.json()
       const quotaError = new Error(error.detail?.message || 'Quota CSV dépassé') as Error & { status: number; detail: unknown }
@@ -311,8 +329,8 @@ export const quotasApi = {
     }
     return handleResponse(response)
   },
-  consumePdfQuota: async (userId: number) => {
-    const response = await fetch(`${OCR_API_URL}/api/v1/users/${userId}/quotas/pdf/consume`, { method: 'POST' })
+  consumePdfQuota: async (user: SdpUserIdentity) => {
+    const response = await fetch(`${OCR_API_URL}/api/v1/users/${user.id}/quotas/pdf/consume?${identityParams(user)}`, { method: 'POST' })
     if (response.status === 429) {
       const error = await response.json()
       const quotaError = new Error(error.detail?.message || 'Quota PDF dépassé') as Error & { status: number; detail: unknown }
