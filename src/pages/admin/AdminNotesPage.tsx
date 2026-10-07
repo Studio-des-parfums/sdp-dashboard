@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ListChecks, Plus, FolderPlus, Trash2, X as XIcon, Languages } from 'lucide-react'
+import { ListChecks, Plus, FolderPlus, Trash2, X as XIcon } from 'lucide-react'
 import AdminIngredientRulesPage from './AdminIngredientRulesPage'
 
 // Notes olfactives : référentiel partagé entre tous les projets (Lylo et les suivants),
@@ -135,50 +135,66 @@ function NoteFormFields({
   setForm,
   coffrets,
   mode,
-  onTranslate,
-  isTranslating,
+  editLanguage,
+  setEditLanguage,
 }: {
   form: ReturnType<typeof emptyForm>
   setForm: (f: ReturnType<typeof emptyForm>) => void
   coffrets: Coffret[]
   mode: 'create' | 'edit'
-  onTranslate?: () => void
-  isTranslating?: boolean
+  editLanguage?: string
+  setEditLanguage?: (code: string) => void
 }) {
-  const visibleLanguages = mode === 'create' ? LANGUAGES.filter((l) => l.code === 'fr') : LANGUAGES
-
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
       {mode === 'create' && (
-        <p className="md:col-span-2 text-xs text-gray-500 -mb-1">
-          Les autres langues (anglais, portugais, russe, arabe, espagnol) seront traduites automatiquement à l'enregistrement.
-        </p>
+        <>
+          <p className="md:col-span-2 text-xs text-gray-500 -mb-1">
+            Les autres langues (anglais, portugais, russe, arabe, espagnol) seront traduites automatiquement à l'enregistrement.
+          </p>
+          <div>
+            <label className="text-xs text-gray-600 mb-1 block">Nom (Français) *</label>
+            <input
+              value={form.translations.fr ?? ''}
+              onChange={(e) => setForm({ ...form, translations: { ...form.translations, fr: e.target.value } })}
+              placeholder="Ex : Bergamote fraîche"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
+            />
+          </div>
+        </>
       )}
-      {mode === 'edit' && (
-        <div className="md:col-span-2 flex items-center justify-between -mb-1">
-          <span className="text-xs text-gray-500">Traductions — modifiables si une traduction automatique ne convient pas.</span>
-          <button
-            type="button"
-            onClick={onTranslate}
-            disabled={isTranslating || !form.translations.fr?.trim()}
-            className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-500 disabled:opacity-50 shrink-0"
-          >
-            <Languages size={14} /> {isTranslating ? 'Traduction…' : 'Retraduire depuis le français'}
-          </button>
-        </div>
+      {mode === 'edit' && editLanguage && setEditLanguage && (
+        <>
+          <div className="md:col-span-2">
+            <label className="text-xs text-gray-600 mb-1 block">Langue à modifier</label>
+            <select
+              value={editLanguage}
+              onChange={(e) => setEditLanguage(e.target.value)}
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
+            >
+              {LANGUAGES.map((lang) => (
+                <option key={lang.code} value={lang.code}>{lang.label}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              {editLanguage === 'fr'
+                ? 'Modifier le français retraduira automatiquement toutes les autres langues.'
+                : 'Seule cette langue sera modifiée.'}
+            </p>
+          </div>
+          <div className="md:col-span-2">
+            <label className="text-xs text-gray-600 mb-1 block">
+              Nom ({LANGUAGES.find((l) => l.code === editLanguage)?.label}) {editLanguage === 'fr' ? '*' : ''}
+            </label>
+            <input
+              value={form.translations[editLanguage] ?? ''}
+              onChange={(e) => setForm({ ...form, translations: { ...form.translations, [editLanguage]: e.target.value } })}
+              dir={editLanguage === 'ar' ? 'rtl' : 'ltr'}
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
+            />
+          </div>
+        </>
       )}
-      {visibleLanguages.map((lang) => (
-        <div key={lang.code}>
-          <label className="text-xs text-gray-600 mb-1 block">Nom ({lang.label}) {lang.code === 'fr' ? '*' : ''}</label>
-          <input
-            value={form.translations[lang.code] ?? ''}
-            onChange={(e) => setForm({ ...form, translations: { ...form.translations, [lang.code]: e.target.value } })}
-            placeholder={lang.code === 'fr' ? 'Ex : Bergamote fraîche' : ''}
-            dir={lang.code === 'ar' ? 'rtl' : 'ltr'}
-            className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
-          />
-        </div>
-      ))}
       <div>
         <label className="text-xs text-gray-600 mb-1 block">Type *</label>
         <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as 'top' | 'heart' | 'base' | 'booster' })} className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900">
@@ -238,7 +254,8 @@ export default function AdminNotesPage() {
 
   const [selected, setSelected] = useState<Note | null>(null)
   const [editForm, setEditForm] = useState(emptyForm())
-  const [isTranslating, setIsTranslating] = useState(false)
+  const [editLanguage, setEditLanguage] = useState('fr')
+  const [originalFrName, setOriginalFrName] = useState('')
 
   async function refresh() {
     setError(null)
@@ -275,12 +292,8 @@ export default function AdminNotesPage() {
     return parts.length > 0 ? parts : null
   }
 
-  function hasAtLeastOneName(translations: Record<string, string>) {
-    return Object.values(translations).some((v) => v.trim())
-  }
-
   async function createNote() {
-    if (!hasAtLeastOneName(createForm.translations)) return
+    if (!createForm.translations.fr?.trim()) return
     setIsBusy(true)
     try {
       await apiFetch('/ingredients', {
@@ -306,25 +319,10 @@ export default function AdminNotesPage() {
     }
   }
 
-  async function translateFromFrench() {
-    const fr = editForm.translations.fr?.trim()
-    if (!fr) return
-    setIsTranslating(true)
-    try {
-      const data = await apiFetch('/ingredients/translate', {
-        method: 'POST',
-        body: JSON.stringify({ name: fr }),
-      }) as { translations: Record<string, string> }
-      setEditForm({ ...editForm, translations: { ...editForm.translations, ...data.translations } })
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur inconnue')
-    } finally {
-      setIsTranslating(false)
-    }
-  }
-
   function openDetail(note: Note) {
     setSelected(note)
+    setEditLanguage('fr')
+    setOriginalFrName(note.translations.fr ?? '')
     setEditForm({
       translations: { ...Object.fromEntries(LANGUAGES.map((l) => [l.code, ''])), ...note.translations },
       type: note.type,
@@ -338,13 +336,24 @@ export default function AdminNotesPage() {
   }
 
   async function saveDetail() {
-    if (!selected || !hasAtLeastOneName(editForm.translations)) return
+    if (!selected || !editForm.translations.fr?.trim()) return
     setIsBusy(true)
     try {
+      // Si le nom français a changé, on retraduit vers toutes les autres langues ;
+      // si seule une autre langue a été modifiée, on ne touche à aucune autre traduction.
+      const frChanged = editForm.translations.fr.trim() !== originalFrName.trim()
+      let translationsToSave = editForm.translations
+      if (frChanged) {
+        const data = await apiFetch('/ingredients/translate', {
+          method: 'POST',
+          body: JSON.stringify({ name: editForm.translations.fr.trim() }),
+        }) as { translations: Record<string, string> }
+        translationsToSave = { ...editForm.translations, ...data.translations }
+      }
       await apiFetch(`/ingredients/${selected.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
-          translations: editForm.translations,
+          translations: translationsToSave,
           type: editForm.type,
           code: editForm.code.trim() || null,
           category: editForm.category.trim() || null,
@@ -581,7 +590,7 @@ export default function AdminNotesPage() {
             </div>
             <NoteFormFields form={createForm} setForm={setCreateForm} coffrets={coffrets} mode="create" />
             <div className="flex gap-2 pt-2">
-              <button onClick={createNote} disabled={isBusy || !hasAtLeastOneName(createForm.translations)} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50">Créer</button>
+              <button onClick={createNote} disabled={isBusy || !createForm.translations.fr?.trim()} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50">Créer</button>
               <button onClick={() => setIsCreateOpen(false)} className="text-gray-500 hover:text-gray-900 px-4 py-2 rounded-lg text-sm transition-colors">Annuler</button>
             </div>
           </div>
@@ -606,12 +615,12 @@ export default function AdminNotesPage() {
                 <button onClick={() => setSelected(null)} className="text-gray-600 hover:text-gray-900"><XIcon size={18} /></button>
               </div>
             </div>
-            <NoteFormFields form={editForm} setForm={setEditForm} coffrets={coffrets} mode="edit" onTranslate={translateFromFrench} isTranslating={isTranslating} />
+            <NoteFormFields form={editForm} setForm={setEditForm} coffrets={coffrets} mode="edit" editLanguage={editLanguage} setEditLanguage={setEditLanguage} />
             <div className="flex gap-2 pt-2">
               <button onClick={deleteNote} className="flex items-center gap-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-700 px-4 py-2 rounded-lg text-sm transition-colors"><Trash2 size={14} /> Supprimer</button>
               <div className="flex-1" />
               <button onClick={() => setSelected(null)} className="text-gray-500 hover:text-gray-900 px-4 py-2 rounded-lg text-sm transition-colors">Fermer</button>
-              <button onClick={saveDetail} disabled={isBusy || !hasAtLeastOneName(editForm.translations)} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50">Enregistrer</button>
+              <button onClick={saveDetail} disabled={isBusy || !editForm.translations.fr?.trim()} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50">Enregistrer</button>
             </div>
           </div>
         </div>
