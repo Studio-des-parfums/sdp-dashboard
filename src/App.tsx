@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { GoogleOAuthProvider } from '@react-oauth/google'
 import { AuthProvider } from './contexts/AuthContext'
 import { MessagingProvider } from './contexts/MessagingContext'
+import { ExtractionQueueProvider } from './contexts/ExtractionQueueContext'
 import { ToastProvider } from './components/ui/Toast'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { DashboardView } from './pages/DashboardView'
@@ -29,12 +30,14 @@ export default function App() {
     <ErrorBoundary>
       <AuthProvider>
         <ToastProvider>
-          <MessagingProvider>
-            {content}
-            <MessagingPanel />
-            <MessageToastStack />
-            <UpdateManager />
-          </MessagingProvider>
+          <ExtractionQueueProvider>
+            <MessagingProvider>
+              {content}
+              <MessagingPanel />
+              <MessageToastStack />
+              <UpdateManager />
+            </MessagingProvider>
+          </ExtractionQueueProvider>
         </ToastProvider>
       </AuthProvider>
     </ErrorBoundary>

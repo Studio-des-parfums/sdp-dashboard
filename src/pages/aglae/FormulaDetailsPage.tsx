@@ -16,6 +16,8 @@ interface Formula {
   customer_id?: number
   file_id?: number
   comment?: string
+  atelier_id?: number
+  atelier_name?: string
   top_notes: Note[]
   heart_notes: Note[]
   base_notes: Note[]
@@ -128,6 +130,7 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
   const [orders, setOrders] = useState<Order[]>([])
   const [ordersLoading, setOrdersLoading] = useState(false)
   const [generatingPdf, setGeneratingPdf] = useState(false)
+  const [thumbnailVersion, setThumbnailVersion] = useState(0)
 
   useEffect(() => {
     Promise.all([
@@ -170,6 +173,7 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
     try {
       const updated = await formulasApi.generatePdf(formula.id)
       setFormula(prev => (prev ? { ...prev, file_id: updated.file_id } : prev))
+      setThumbnailVersion(v => v + 1)
       showSuccess('Fiche PDF générée')
     } catch {
       showError('Erreur', 'Impossible de générer la fiche PDF')
@@ -271,6 +275,9 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
           <p className="text-xs text-gray-600">Nom du parfum : {formula.perfume_name || 'Non renseigné'}</p>
           {customerName && (
             <p className="text-xs text-gray-600">Client : {customerName}</p>
+          )}
+          {formula.atelier_name && (
+            <p className="text-xs text-gray-600">Atelier : {formula.atelier_name}</p>
           )}
         </div>
         {!isEditing && (
@@ -423,12 +430,12 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
               <div>
                 <div ref={previewRef} className="bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-center">
                   <img
-                    src={formulasApi.getThumbnailUrl(formulaId)}
+                    src={`${formulasApi.getThumbnailUrl(formulaId)}?v=${thumbnailVersion}`}
                     alt="Aperçu"
                     className="cursor-pointer relative z-10"
                     onLoad={handleImageLoad}
                     style={getFitStyle(naturalSize, previewWidth, 420, previewRotation)}
-                    onClick={() => { setLightboxImage(formulasApi.getThumbnailUrl(formulaId)); setLightboxRotation(previewRotation); setLightboxZoom(1) }}
+                    onClick={() => { setLightboxImage(`${formulasApi.getThumbnailUrl(formulaId)}?v=${thumbnailVersion}`); setLightboxRotation(previewRotation); setLightboxZoom(1) }}
                   />
                 </div>
                 <div className="flex justify-center gap-2 mt-4">
@@ -447,7 +454,7 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
                     ↻
                   </button>
                 </div>
-                <div className="mt-2 text-center">
+                <div className="mt-2 flex flex-col items-center gap-2">
                   <a
                     href={filesApi.getDownloadUrl(formula.file_id!)}
                     download
@@ -455,6 +462,9 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
                   >
                     ⬇️ Télécharger
                   </a>
+                  <Button size="sm" variant="secondary" onClick={handleGeneratePdf} loading={generatingPdf}>
+                    {generatingPdf ? 'Génération...' : '🔄 Régénérer la fiche PDF'}
+                  </Button>
                 </div>
               </div>
             ) : (

@@ -6,15 +6,24 @@ import AdminIngredientRulesPage from './AdminIngredientRulesPage'
 // stocké dans la base générale du dashboard SDP plutôt que dans une base propre à un projet.
 // Une note = une seule ligne, avec un nom par langue (translations) plutôt qu'une ligne
 // dupliquée par langue — évite de créer deux fois la même note pour FR et EN.
+//
+// À la création, seul le nom français est saisi : le backend traduit automatiquement
+// (OpenAI) vers les autres langues à l'enregistrement. Dans le détail d'une note
+// existante, toutes les traductions restent visibles et modifiables manuellement.
 
 const LANGUAGES: { code: string; label: string }[] = [
   { code: 'fr', label: 'Français' },
   { code: 'en', label: 'English' },
+  { code: 'pt', label: 'Português' },
+  { code: 'ru', label: 'Русский' },
+  { code: 'ar', label: 'العربية' },
+  { code: 'es', label: 'Español' },
 ]
 
 type Note = {
   id: number
   type: 'top' | 'heart' | 'base' | 'booster'
+  code: string | null
   category: string | null
   description: string | null
   intensity: string | null
@@ -52,6 +61,7 @@ function emptyForm() {
   return {
     translations: Object.fromEntries(LANGUAGES.map((l) => [l.code, ''])) as Record<string, string>,
     type: 'top' as 'top' | 'heart' | 'base' | 'booster',
+    code: '',
     category: '',
     description: '',
     intensity: '',
@@ -124,24 +134,67 @@ function NoteFormFields({
   form,
   setForm,
   coffrets,
+  mode,
+  editLanguage,
+  setEditLanguage,
 }: {
   form: ReturnType<typeof emptyForm>
   setForm: (f: ReturnType<typeof emptyForm>) => void
   coffrets: Coffret[]
+  mode: 'create' | 'edit'
+  editLanguage?: string
+  setEditLanguage?: (code: string) => void
 }) {
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-      {LANGUAGES.map((lang) => (
-        <div key={lang.code} className={LANGUAGES.length % 2 === 1 ? '' : ''}>
-          <label className="text-xs text-gray-600 mb-1 block">Nom ({lang.label}) {lang.code === 'fr' ? '*' : ''}</label>
-          <input
-            value={form.translations[lang.code] ?? ''}
-            onChange={(e) => setForm({ ...form, translations: { ...form.translations, [lang.code]: e.target.value } })}
-            placeholder={lang.code === 'fr' ? 'Ex : Bergamote fraîche' : 'Ex: Fresh bergamot'}
-            className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
-          />
-        </div>
-      ))}
+      {mode === 'create' && (
+        <>
+          <p className="md:col-span-2 text-xs text-gray-500 -mb-1">
+            Les autres langues (anglais, portugais, russe, arabe, espagnol) seront traduites automatiquement à l'enregistrement.
+          </p>
+          <div>
+            <label className="text-xs text-gray-600 mb-1 block">Nom (Français) *</label>
+            <input
+              value={form.translations.fr ?? ''}
+              onChange={(e) => setForm({ ...form, translations: { ...form.translations, fr: e.target.value } })}
+              placeholder="Ex : Bergamote fraîche"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
+            />
+          </div>
+        </>
+      )}
+      {mode === 'edit' && editLanguage && setEditLanguage && (
+        <>
+          <div className="md:col-span-2">
+            <label className="text-xs text-gray-600 mb-1 block">Langue à modifier</label>
+            <select
+              value={editLanguage}
+              onChange={(e) => setEditLanguage(e.target.value)}
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
+            >
+              {LANGUAGES.map((lang) => (
+                <option key={lang.code} value={lang.code}>{lang.label}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              {editLanguage === 'fr'
+                ? 'Modifier le français retraduira automatiquement toutes les autres langues.'
+                : 'Seule cette langue sera modifiée.'}
+            </p>
+          </div>
+          <div className="md:col-span-2">
+            <label className="text-xs text-gray-600 mb-1 block">
+              Nom ({LANGUAGES.find((l) => l.code === editLanguage)?.label}) {editLanguage === 'fr' ? '*' : ''}
+            </label>
+            <input
+              value={form.translations[editLanguage] ?? ''}
+              onChange={(e) => setForm({ ...form, translations: { ...form.translations, [editLanguage]: e.target.value } })}
+              dir={editLanguage === 'ar' ? 'rtl' : 'ltr'}
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
+            />
+          </div>
+        </>
+      )}
       <div>
         <label className="text-xs text-gray-600 mb-1 block">Type *</label>
         <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as 'top' | 'heart' | 'base' | 'booster' })} className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900">
@@ -150,6 +203,10 @@ function NoteFormFields({
           <option value="base">Note de fond</option>
           <option value="booster">Booster</option>
         </select>
+      </div>
+      <div>
+        <label className="text-xs text-gray-600 mb-1 block">Code</label>
+        <input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="Ex : BERG-001" className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900" />
       </div>
       <div>
         <label className="text-xs text-gray-600 mb-1 block">Catégorie</label>
@@ -197,6 +254,8 @@ export default function AdminNotesPage() {
 
   const [selected, setSelected] = useState<Note | null>(null)
   const [editForm, setEditForm] = useState(emptyForm())
+  const [editLanguage, setEditLanguage] = useState('fr')
+  const [originalFrName, setOriginalFrName] = useState('')
 
   async function refresh() {
     setError(null)
@@ -233,12 +292,8 @@ export default function AdminNotesPage() {
     return parts.length > 0 ? parts : null
   }
 
-  function hasAtLeastOneName(translations: Record<string, string>) {
-    return Object.values(translations).some((v) => v.trim())
-  }
-
   async function createNote() {
-    if (!hasAtLeastOneName(createForm.translations)) return
+    if (!createForm.translations.fr?.trim()) return
     setIsBusy(true)
     try {
       await apiFetch('/ingredients', {
@@ -246,6 +301,7 @@ export default function AdminNotesPage() {
         body: JSON.stringify({
           translations: createForm.translations,
           type: createForm.type,
+          code: createForm.code.trim() || null,
           category: createForm.category.trim() || null,
           description: createForm.description.trim() || null,
           intensity: createForm.intensity.trim() || null,
@@ -265,9 +321,12 @@ export default function AdminNotesPage() {
 
   function openDetail(note: Note) {
     setSelected(note)
+    setEditLanguage('fr')
+    setOriginalFrName(note.translations.fr ?? '')
     setEditForm({
       translations: { ...Object.fromEntries(LANGUAGES.map((l) => [l.code, ''])), ...note.translations },
       type: note.type,
+      code: note.code ?? '',
       category: note.category ?? '',
       description: note.description ?? '',
       intensity: note.intensity ?? '',
@@ -277,14 +336,26 @@ export default function AdminNotesPage() {
   }
 
   async function saveDetail() {
-    if (!selected || !hasAtLeastOneName(editForm.translations)) return
+    if (!selected || !editForm.translations.fr?.trim()) return
     setIsBusy(true)
     try {
+      // Si le nom français a changé, on retraduit vers toutes les autres langues ;
+      // si seule une autre langue a été modifiée, on ne touche à aucune autre traduction.
+      const frChanged = editForm.translations.fr.trim() !== originalFrName.trim()
+      let translationsToSave = editForm.translations
+      if (frChanged) {
+        const data = await apiFetch('/ingredients/translate', {
+          method: 'POST',
+          body: JSON.stringify({ name: editForm.translations.fr.trim() }),
+        }) as { translations: Record<string, string> }
+        translationsToSave = { ...editForm.translations, ...data.translations }
+      }
       await apiFetch(`/ingredients/${selected.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
-          translations: editForm.translations,
+          translations: translationsToSave,
           type: editForm.type,
+          code: editForm.code.trim() || null,
           category: editForm.category.trim() || null,
           description: editForm.description.trim() || null,
           intensity: editForm.intensity.trim() || null,
@@ -459,6 +530,7 @@ export default function AdminNotesPage() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-gray-900 truncate">{displayName(note)}</p>
+                          {note.code && <p className="text-xs text-gray-500 truncate">{note.code}</p>}
                           <span className={`inline-block mt-1 rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_STYLE[note.type]}`}>{TYPE_LABELS[note.type]}</span>
                         </div>
                         <button
@@ -516,9 +588,9 @@ export default function AdminNotesPage() {
               <h2 className="text-lg font-semibold text-gray-900">Nouvelle note</h2>
               <button onClick={() => setIsCreateOpen(false)} className="text-gray-600 hover:text-gray-900"><XIcon size={18} /></button>
             </div>
-            <NoteFormFields form={createForm} setForm={setCreateForm} coffrets={coffrets} />
+            <NoteFormFields form={createForm} setForm={setCreateForm} coffrets={coffrets} mode="create" />
             <div className="flex gap-2 pt-2">
-              <button onClick={createNote} disabled={isBusy || !hasAtLeastOneName(createForm.translations)} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50">Créer</button>
+              <button onClick={createNote} disabled={isBusy || !createForm.translations.fr?.trim()} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50">Créer</button>
               <button onClick={() => setIsCreateOpen(false)} className="text-gray-500 hover:text-gray-900 px-4 py-2 rounded-lg text-sm transition-colors">Annuler</button>
             </div>
           </div>
@@ -543,12 +615,12 @@ export default function AdminNotesPage() {
                 <button onClick={() => setSelected(null)} className="text-gray-600 hover:text-gray-900"><XIcon size={18} /></button>
               </div>
             </div>
-            <NoteFormFields form={editForm} setForm={setEditForm} coffrets={coffrets} />
+            <NoteFormFields form={editForm} setForm={setEditForm} coffrets={coffrets} mode="edit" editLanguage={editLanguage} setEditLanguage={setEditLanguage} />
             <div className="flex gap-2 pt-2">
               <button onClick={deleteNote} className="flex items-center gap-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-700 px-4 py-2 rounded-lg text-sm transition-colors"><Trash2 size={14} /> Supprimer</button>
               <div className="flex-1" />
               <button onClick={() => setSelected(null)} className="text-gray-500 hover:text-gray-900 px-4 py-2 rounded-lg text-sm transition-colors">Fermer</button>
-              <button onClick={saveDetail} disabled={isBusy || !hasAtLeastOneName(editForm.translations)} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50">Enregistrer</button>
+              <button onClick={saveDetail} disabled={isBusy || !editForm.translations.fr?.trim()} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50">Enregistrer</button>
             </div>
           </div>
         </div>

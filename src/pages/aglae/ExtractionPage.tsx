@@ -1,23 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
-import { ocrApi, quotasApi } from '../../api/ocrClient'
-import { useAuth } from '../../contexts/AuthContext'
-import { useToast } from '../../components/ui/Toast'
+import { useExtractionQueue, SECONDS_PER_PAGE } from '../../contexts/ExtractionQueueContext'
 import { Button } from '../../components/ui/Button'
-
-const SECONDS_PER_PAGE = 5
-const POLL_INTERVAL = 3000
-
-interface QueueItem {
-  id: string
-  file: File
-  filename: string
-  size: number
-  pages: number | null
-  estimatedTime: number | null
-  status: 'pending' | 'processing' | 'done' | 'error'
-  error?: string
-  jobId?: string
-}
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -25,51 +8,24 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-async function getPdfPageCount(file: File): Promise<number> {
-  try {
-    const pdfjsLib = await import('pdfjs-dist')
-    const buffer = await file.arrayBuffer()
-    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise
-    return pdf.numPages
-  } catch {
-    return 0
-  }
+function formatDuration(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`
+  const minutes = Math.floor(seconds / 60)
+  const remaining = seconds % 60
+  return remaining > 0 ? `${minutes}min ${remaining}s` : `${minutes}min`
 }
 
 export default function ExtractionPage() {
-  const { sdpUser } = useAuth()
-  const { showError, showSuccess, showWarning, showQuotaError } = useToast()
-  const [queue, setQueue] = useState<QueueItem[]>([])
+  const { queue, processing, addFiles, processQueue, clearCompleted, removeItem } = useExtractionQueue()
   const [dragging, setDragging] = useState(false)
-  const [processing, setProcessing] = useState(false)
   const dropRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const doneCount = queue.filter(q => q.status === 'done').length
   const errorCount = queue.filter(q => q.status === 'error').length
   const pendingCount = queue.filter(q => q.status === 'pending').length
-
-  const addFiles = useCallback(async (files: FileList | File[]) => {
-    const newItems: QueueItem[] = []
-    for (const file of Array.from(files)) {
-      if (file.type !== 'application/pdf') {
-        showWarning('Fichier ignoré', `${file.name} n'est pas un PDF`)
-        continue
-      }
-      const pages = await getPdfPageCount(file)
-      const estimatedTime = pages > 0 ? pages * SECONDS_PER_PAGE : null
-      newItems.push({
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        file,
-        filename: file.name,
-        size: file.size,
-        pages,
-        estimatedTime,
-        status: 'pending',
-      })
-    }
-    setQueue(prev => [...prev, ...newItems])
-  }, [showWarning])
+  const pendingItems = queue.filter(q => q.status === 'pending')
+  const totalEstimatedTime = pendingItems.reduce((sum, q) => sum + (q.estimatedTime ?? SECONDS_PER_PAGE), 0)
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -85,76 +41,6 @@ export default function ExtractionPage() {
       addFiles(e.target.files)
       e.target.value = ''
     }
-  }
-
-  const pollJob = useCallback((jobId: string): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const interval = setInterval(async () => {
-        try {
-          const res = await fetch(`${import.meta.env.VITE_OCR_API_URL || import.meta.env.VITE_API_URL}/api/v1/ocr/jobs/${jobId}`)
-          const data = await res.json()
-          if (data.status === 'completed' || data.status === 'done') {
-            clearInterval(interval)
-            resolve('done')
-          } else if (data.status === 'failed' || data.status === 'error') {
-            clearInterval(interval)
-            reject(new Error(data.error || 'Job failed'))
-          }
-        } catch {
-          clearInterval(interval)
-          reject(new Error('Polling failed'))
-        }
-      }, POLL_INTERVAL)
-    })
-  }, [])
-
-  const processQueue = useCallback(async () => {
-    if (!sdpUser) { showError('Non connecté'); return }
-    setProcessing(true)
-
-    for (let i = 0; i < queue.length; i++) {
-      const item = queue[i]
-      if (item.status !== 'pending') continue
-
-      setQueue(prev => prev.map((q, idx) => idx === i ? { ...q, status: 'processing' } : q))
-
-      try {
-        await quotasApi.consumePdfQuota(sdpUser.id)
-      } catch (err: unknown) {
-        const error = err as { status?: number; detail?: unknown; message?: string }
-        if (error.status === 429) {
-          showQuotaError(error.detail as { type?: string; message?: string } | undefined)
-          setQueue(prev => prev.map((q, idx) => idx === i ? { ...q, status: 'error', error: 'Quota dépassé' } : q))
-          setProcessing(false)
-          return
-        }
-        setQueue(prev => prev.map((q, idx) => idx === i ? { ...q, status: 'error', error: error.message } : q))
-        continue
-      }
-
-      try {
-        const result = await ocrApi.uploadPdf(item.file)
-        const jobId = result.job_id || result.id
-        if (jobId) {
-          await pollJob(jobId)
-        }
-        setQueue(prev => prev.map((q, idx) => idx === i ? { ...q, status: 'done' } : q))
-        showSuccess('Extraction réussie', item.filename)
-      } catch (err: unknown) {
-        const error = err as { message?: string }
-        setQueue(prev => prev.map((q, idx) => idx === i ? { ...q, status: 'error', error: error.message } : q))
-      }
-    }
-
-    setProcessing(false)
-  }, [queue, sdpUser, showError, showSuccess, showQuotaError, pollJob])
-
-  const clearCompleted = () => {
-    setQueue(prev => prev.filter(q => q.status === 'pending' || q.status === 'processing'))
-  }
-
-  const removeItem = (id: string) => {
-    setQueue(prev => prev.filter(q => q.id !== id))
   }
 
   return (
@@ -204,7 +90,12 @@ export default function ExtractionPage() {
       {queue.length > 0 && (
         <div className="bg-gray-100 border border-gray-200 rounded-xl overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-            <span className="text-sm font-medium text-gray-900">📋 File d'attente ({queue.length})</span>
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-gray-900">📋 File d'attente ({queue.length})</span>
+              {pendingCount > 0 && (
+                <span className="text-xs text-gray-500">⏱ ~{formatDuration(totalEstimatedTime)} au total</span>
+              )}
+            </div>
             <div className="flex gap-2">
               {pendingCount > 0 && (
                 <Button size="sm" onClick={processQueue} loading={processing}>
