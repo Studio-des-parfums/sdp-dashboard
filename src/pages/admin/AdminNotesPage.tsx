@@ -15,6 +15,7 @@ const LANGUAGES: { code: string; label: string }[] = [
 type Note = {
   id: number
   type: 'top' | 'heart' | 'base' | 'booster'
+  code: string | null
   category: string | null
   description: string | null
   intensity: string | null
@@ -52,6 +53,7 @@ function emptyForm() {
   return {
     translations: Object.fromEntries(LANGUAGES.map((l) => [l.code, ''])) as Record<string, string>,
     type: 'top' as 'top' | 'heart' | 'base' | 'booster',
+    code: '',
     category: '',
     description: '',
     intensity: '',
@@ -152,6 +154,10 @@ function NoteFormFields({
         </select>
       </div>
       <div>
+        <label className="text-xs text-gray-600 mb-1 block">Code</label>
+        <input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="Ex : BERG-001" className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900" />
+      </div>
+      <div>
         <label className="text-xs text-gray-600 mb-1 block">Catégorie</label>
         <input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="adult, enfant…" className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900" />
       </div>
@@ -246,6 +252,7 @@ export default function AdminNotesPage() {
         body: JSON.stringify({
           translations: createForm.translations,
           type: createForm.type,
+          code: createForm.code.trim() || null,
           category: createForm.category.trim() || null,
           description: createForm.description.trim() || null,
           intensity: createForm.intensity.trim() || null,
@@ -268,6 +275,7 @@ export default function AdminNotesPage() {
     setEditForm({
       translations: { ...Object.fromEntries(LANGUAGES.map((l) => [l.code, ''])), ...note.translations },
       type: note.type,
+      code: note.code ?? '',
       category: note.category ?? '',
       description: note.description ?? '',
       intensity: note.intensity ?? '',
@@ -285,6 +293,7 @@ export default function AdminNotesPage() {
         body: JSON.stringify({
           translations: editForm.translations,
           type: editForm.type,
+          code: editForm.code.trim() || null,
           category: editForm.category.trim() || null,
           description: editForm.description.trim() || null,
           intensity: editForm.intensity.trim() || null,
@@ -459,6 +468,7 @@ export default function AdminNotesPage() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-gray-900 truncate">{displayName(note)}</p>
+                          {note.code && <p className="text-xs text-gray-500 truncate">{note.code}</p>}
                           <span className={`inline-block mt-1 rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_STYLE[note.type]}`}>{TYPE_LABELS[note.type]}</span>
                         </div>
                         <button
