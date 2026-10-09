@@ -74,6 +74,7 @@ export const mockDashboards: Record<string, Dashboard> = {
       { id: 'questionnaire', name: 'Questionnaire', icon: 'ClipboardList', metricIds: [], chartIds: [] },
       { id: 'imprimantes', name: 'Imprimantes', icon: 'Printer', metricIds: [], chartIds: [] },
       { id: 'analyses', name: 'Analyses', icon: 'BarChart3', metricIds: [], chartIds: [] },
+      { id: 'branding', name: 'Branding', icon: 'Image', metricIds: [], chartIds: [] },
     ],
     metrics: [],
     charts: [],

@@ -5,6 +5,7 @@ import LyloFormulesPage from '../../pages/lylo/LyloFormulesPage'
 import LyloQuestionnairePage from '../../pages/lylo/LyloQuestionnairePage'
 import LyloImprimantesPage from '../../pages/lylo/LyloImprimantesPage'
 import LyloAnalysesPage from '../../pages/lylo/LyloAnalysesPage'
+import LyloBrandingPage from '../../pages/lylo/LyloBrandingPage'
 
 // Les notes olfactives (ex-"Ingrédients") sont désormais un référentiel partagé,
 // géré depuis Admin > Notes olfactives plutôt que depuis ce menu Lylo.
@@ -16,6 +17,7 @@ const LYLO_PAGES: Record<string, React.ComponentType> = {
   questionnaire: LyloQuestionnairePage,
   imprimantes: LyloImprimantesPage,
   analyses: LyloAnalysesPage,
+  branding: LyloBrandingPage,
 }
 
 export default function LyloRenderer({ section }: { section: string }) {

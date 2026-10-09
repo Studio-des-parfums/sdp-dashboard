@@ -21,6 +21,21 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
+async function apiFetchForm<T>(path: string, formData: FormData): Promise<T> {
+  const url = `${BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'ngrok-skip-browser-warning': 'true' },
+    body: formData,
+  })
+  if (!res.ok) {
+    let details = ''
+    try { details = await res.text() } catch { /* ignore */ }
+    throw new Error(`HTTP ${res.status}${details ? ` — ${details}` : ''}`)
+  }
+  return res.json() as Promise<T>
+}
+
 function normalizeArray<T>(payload: unknown): T[] {
   if (Array.isArray(payload)) return payload as T[]
   if (payload && typeof payload === 'object') {
@@ -65,4 +80,12 @@ export const lyloApi = {
   updatePrinter: (id: string | number, data: Record<string, unknown>) => apiFetch(`/printers/${encodeURIComponent(String(id))}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deletePrinter: (id: string | number) => apiFetch(`/printers/${encodeURIComponent(String(id))}`, { method: 'DELETE' }),
   scanNetwork: () => apiFetch<{ printers: { ip: string; port?: number; hostname?: string }[]; printnode_printers: { printnode_id: string | number; name: string; state: string }[] }>('/printers/network/scan'),
+
+  getBranding: () => apiFetch<{ logo_url: string | null }>('/branding'),
+  uploadLogo: (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return apiFetchForm<{ logo_url: string | null }>('/branding/logo', formData)
+  },
+  deleteLogo: () => apiFetch<null>('/branding/logo', { method: 'DELETE' }),
 }
