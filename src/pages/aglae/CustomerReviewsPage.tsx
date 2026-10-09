@@ -63,6 +63,7 @@ export default function CustomerReviewsPage({ onBack }: { onBack: () => void }) 
   const [editingCustomer, setEditingCustomer] = useState<ReviewCustomer | null>(null)
   const [editForm, setEditForm] = useState<Record<string, string>>({})
   const [isEditing, setIsEditing] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const [modalError, setModalError] = useState('')
   const [customerFiles, setCustomerFiles] = useState<ReviewFile[]>([])
   const [filesLoading, setFilesLoading] = useState(false)
@@ -124,7 +125,7 @@ export default function CustomerReviewsPage({ onBack }: { onBack: () => void }) 
     }
   }
 
-  const REVIEW_FIELDS = ['first_name', 'last_name', 'email', 'phone', 'job', 'country', 'city'] as const
+  const REVIEW_FIELDS = ['first_name', 'last_name', 'email', 'phone', 'job', 'country', 'city', 'date'] as const
 
   const handleEditCustomer = async (customer: ReviewCustomer) => {
     setEditingCustomer(customer)
@@ -136,6 +137,7 @@ export default function CustomerReviewsPage({ onBack }: { onBack: () => void }) 
       job: customer.job || '',
       country: customer.country || '',
       city: customer.city || '',
+      date: customer.date || '',
     })
     setIsEditing(false)
     setPreviewRotation(0)
@@ -169,6 +171,7 @@ export default function CustomerReviewsPage({ onBack }: { onBack: () => void }) 
   }
 
   const handleSaveEdit = async () => {
+    setIsSaving(true)
     try {
       setModalError('')
       const customerData: Record<string, string> = {}
@@ -194,6 +197,8 @@ export default function CustomerReviewsPage({ onBack }: { onBack: () => void }) 
       }
     } catch {
       setModalError('Erreur lors de la modification du client ou de la formule')
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -210,6 +215,7 @@ export default function CustomerReviewsPage({ onBack }: { onBack: () => void }) 
           job: editingCustomer.job || '',
           country: editingCustomer.country || '',
           city: editingCustomer.city || '',
+          date: editingCustomer.date || '',
         })
       }
       setEditingFormulas(JSON.parse(JSON.stringify(formulas)))
@@ -227,6 +233,18 @@ export default function CustomerReviewsPage({ onBack }: { onBack: () => void }) 
 
   const handleFormChange = (field: string, value: string) => {
     setEditForm(prev => ({ ...prev, [field]: value }))
+  }
+
+  function formatDateInput(raw: string): string {
+    const digits = raw.replace(/\D/g, '').slice(0, 8)
+    const day = digits.slice(0, 2)
+    const month = digits.slice(2, 4)
+    const year = digits.slice(4, 8)
+    return [day, month, year].filter(Boolean).join('/')
+  }
+
+  const handleDateChange = (value: string) => {
+    handleFormChange('date', formatDateInput(value))
   }
 
   const handleSearchChange = (value: string) => {
@@ -483,13 +501,15 @@ export default function CustomerReviewsPage({ onBack }: { onBack: () => void }) 
                       <div>
                         <h4 className="text-sm font-medium text-gray-500 mb-3">Informations personnelles</h4>
                         <div className="grid grid-cols-1 gap-3">
-                          {['first_name', 'last_name', 'email', 'phone', 'job'].map(field => (
+                          {['first_name', 'last_name', 'email', 'phone', 'job', 'date'].map(field => (
                             <div key={field}>
-                              <label className="text-xs text-gray-600 mb-1 block capitalize">{field.replace('_', ' ')}</label>
+                              <label className="text-xs text-gray-600 mb-1 block capitalize">{field === 'date' ? 'Date' : field.replace('_', ' ')}</label>
                               <input
                                 type="text"
                                 value={editForm[field] || ''}
-                                onChange={e => handleFormChange(field, e.target.value)}
+                                onChange={e => field === 'date' ? handleDateChange(e.target.value) : handleFormChange(field, e.target.value)}
+                                placeholder={field === 'date' ? 'JJ/MM/AAAA' : undefined}
+                                maxLength={field === 'date' ? 10 : undefined}
                                 className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-indigo-500 transition-colors"
                               />
                             </div>
@@ -710,8 +730,10 @@ export default function CustomerReviewsPage({ onBack }: { onBack: () => void }) 
                     <div className="bg-red-50/20 border border-red-200 text-red-700 text-sm px-4 py-2 rounded-lg mt-6">⚠️ {modalError}</div>
                   )}
                   <div className="flex justify-end gap-2 mt-4">
-                    <Button variant="secondary" size="sm" onClick={handleCancelEdit}>Annuler</Button>
-                    <Button size="sm" onClick={handleSaveEdit}>Enregistrer</Button>
+                    <Button variant="secondary" size="sm" onClick={handleCancelEdit} disabled={isSaving}>Annuler</Button>
+                    <Button size="sm" onClick={handleSaveEdit} loading={isSaving}>
+                      {isSaving ? 'Enregistrement...' : 'Enregistrer'}
+                    </Button>
                   </div>
                 </>
               )}
