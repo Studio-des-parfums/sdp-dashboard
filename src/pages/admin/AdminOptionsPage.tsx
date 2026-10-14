@@ -161,10 +161,19 @@ function OptionFormFields({
       </div>
 
       <div>
-        <label className="text-xs text-gray-600 mb-1 block">
-          Coffrets concernés — laisser vide pour la rendre disponible à tous les coffrets
-        </label>
+        <label className="text-xs text-gray-600 mb-1 block">Coffrets concernés</label>
         <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setForm({ ...form, coffret_ids: [] })}
+            className={`rounded-full px-3 py-1.5 text-xs font-medium border transition-colors ${
+              form.coffret_ids.length === 0
+                ? 'bg-indigo-600 border-indigo-600 text-white'
+                : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            Tous les coffrets
+          </button>
           {coffrets.map((c) => (
             <button
               key={c.id}
@@ -183,10 +192,19 @@ function OptionFormFields({
       </div>
 
       <div>
-        <label className="text-xs text-gray-600 mb-1 block">
-          Ateliers concernés — laisser vide pour la rendre disponible à tous les ateliers
-        </label>
+        <label className="text-xs text-gray-600 mb-1 block">Ateliers concernés</label>
         <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setForm({ ...form, atelier_ids: [] })}
+            className={`rounded-full px-3 py-1.5 text-xs font-medium border transition-colors ${
+              form.atelier_ids.length === 0
+                ? 'bg-indigo-600 border-indigo-600 text-white'
+                : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            Tous les ateliers
+          </button>
           {ateliers.map((a) => (
             <button
               key={a.id}
