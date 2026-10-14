@@ -7,8 +7,9 @@ import { useToast } from '../components/ui/Toast'
 import type { Project } from '../types'
 import AdminNotesPage from './admin/AdminNotesPage'
 import AdminAteliersPage from './admin/AdminAteliersPage'
+import AdminOptionsPage from './admin/AdminOptionsPage'
 
-type Tab = 'projects' | 'users' | 'roles' | 'tickets' | 'notes' | 'ateliers'
+type Tab = 'projects' | 'users' | 'roles' | 'tickets' | 'notes' | 'ateliers' | 'options'
 
 const RESOURCES = ['dashboard', 'lylo', 'aglae', 'ninno', 'users'] as const
 const ACTIONS = ['view', 'edit'] as const
@@ -34,6 +35,7 @@ export default function AdminPage({ embedded, section, onSectionChange: _onSecti
         {activeTab === 'tickets' && <TicketsTab />}
         {activeTab === 'notes' && <AdminNotesPage />}
         {activeTab === 'ateliers' && <AdminAteliersPage />}
+        {activeTab === 'options' && <AdminOptionsPage />}
       </div>
     )
   }
@@ -46,7 +48,7 @@ export default function AdminPage({ embedded, section, onSectionChange: _onSecti
           <span className="font-bold text-sm truncate text-gray-900">Administration</span>
         </div>
         <nav className="flex-1 py-2">
-          {([['projects', 'Projets'], ['users', 'Utilisateurs'], ['roles', 'Rôles'], ['tickets', 'Tickets'], ['notes', 'Coffrets et Notes'], ['ateliers', 'Ateliers']] as [Tab, string][]).map(([id, label]) => (
+          {([['projects', 'Projets'], ['users', 'Utilisateurs'], ['roles', 'Rôles'], ['tickets', 'Tickets'], ['notes', 'Coffrets et Notes'], ['ateliers', 'Ateliers'], ['options', 'Options']] as [Tab, string][]).map(([id, label]) => (
             <button
               key={id}
               onClick={() => setTab(id)}
@@ -67,6 +69,7 @@ export default function AdminPage({ embedded, section, onSectionChange: _onSecti
         {activeTab === 'tickets' && <TicketsTab />}
         {activeTab === 'notes' && <AdminNotesPage />}
         {activeTab === 'ateliers' && <AdminAteliersPage />}
+        {activeTab === 'options' && <AdminOptionsPage />}
       </main>
     </div>
   )
