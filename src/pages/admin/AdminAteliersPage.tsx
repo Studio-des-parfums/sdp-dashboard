@@ -3,10 +3,16 @@ import { Plus, Trash2, X as XIcon } from 'lucide-react'
 
 // Ateliers organisés par l'entreprise, chacun rattaché à un coffret précis.
 
-// Contrairement aux notes/coffrets (bilingues FR/EN), les ateliers ne sont
-// saisis qu'en français — pas de public anglophone visé pour l'instant.
+// Le français est saisi manuellement ; les autres langues sont générées automatiquement
+// (OpenAI) à la création/modification mais restent modifiables ici si une traduction ne
+// convient pas — même principe que Notes et Options.
 const LANGUAGES: { code: string; label: string }[] = [
   { code: 'fr', label: 'Français' },
+  { code: 'en', label: 'Anglais' },
+  { code: 'es', label: 'Espagnol' },
+  { code: 'pt', label: 'Portugais' },
+  { code: 'ru', label: 'Russe' },
+  { code: 'ar', label: 'Arabe' },
 ]
 
 type Atelier = {
@@ -84,51 +90,62 @@ function AtelierFormFields({
   coffrets: Coffret[]
 }) {
   return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-      {LANGUAGES.map((lang) => (
-        <div key={lang.code}>
-          <label className="text-xs text-gray-600 mb-1 block">Nom ({lang.label}) {lang.code === 'fr' ? '*' : ''}</label>
+    <div className="space-y-4">
+      <div>
+        <label className="text-xs text-gray-600 mb-1.5 block">Nom traduit</label>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {LANGUAGES.map((lang) => (
+            <div key={lang.code}>
+              <label className="text-[11px] text-gray-500 mb-1 block">{lang.label} {lang.code === 'fr' ? '*' : ''}</label>
+              <input
+                value={form.translations[lang.code] ?? ''}
+                onChange={(e) => setForm({ ...form, translations: { ...form.translations, [lang.code]: e.target.value } })}
+                placeholder={lang.code === 'fr' ? 'Ex : Atelier découverte' : '(générée automatiquement si vide)'}
+                dir={lang.code === 'ar' ? 'rtl' : 'ltr'}
+                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
+              />
+            </div>
+          ))}
+        </div>
+        <p className="text-[11px] text-gray-500 mt-1.5">
+          Seul le français est obligatoire — les autres langues sont générées automatiquement à l'enregistrement si laissées vides, et restent modifiables ici.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div className="md:col-span-2">
+          <label className="text-xs text-gray-600 mb-1 block">Coffret *</label>
+          <select
+            value={form.coffret_id || ''}
+            onChange={(e) => setForm({ ...form, coffret_id: Number(e.target.value) })}
+            className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
+          >
+            <option value="">— Sélectionner —</option>
+            {coffrets.map((c) => (
+              <option key={c.id} value={c.id}>{coffretName(c)}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="text-xs text-gray-600 mb-1 block">Quantité (ml)</label>
           <input
-            value={form.translations[lang.code] ?? ''}
-            onChange={(e) => setForm({ ...form, translations: { ...form.translations, [lang.code]: e.target.value } })}
-            placeholder={lang.code === 'fr' ? 'Ex : Atelier découverte' : 'Ex: Discovery workshop'}
+            type="number"
+            min="0"
+            step="0.1"
+            value={form.volume_ml}
+            onChange={(e) => setForm({ ...form, volume_ml: e.target.value })}
+            placeholder="Ex : 30"
             className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
           />
         </div>
-      ))}
-      <div className="md:col-span-2">
-        <label className="text-xs text-gray-600 mb-1 block">Coffret *</label>
-        <select
-          value={form.coffret_id || ''}
-          onChange={(e) => setForm({ ...form, coffret_id: Number(e.target.value) })}
-          className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
-        >
-          <option value="">— Sélectionner —</option>
-          {coffrets.map((c) => (
-            <option key={c.id} value={c.id}>{coffretName(c)}</option>
-          ))}
-        </select>
-      </div>
-      <div>
-        <label className="text-xs text-gray-600 mb-1 block">Quantité (ml)</label>
-        <input
-          type="number"
-          min="0"
-          step="0.1"
-          value={form.volume_ml}
-          onChange={(e) => setForm({ ...form, volume_ml: e.target.value })}
-          placeholder="Ex : 30"
-          className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
-        />
-      </div>
-      <div className="md:col-span-2">
-        <label className="text-xs text-gray-600 mb-1 block">Description</label>
-        <input
-          value={form.description}
-          onChange={(e) => setForm({ ...form, description: e.target.value })}
-          placeholder="Déroulé, contenu de l'atelier…"
-          className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
-        />
+        <div className="md:col-span-2">
+          <label className="text-xs text-gray-600 mb-1 block">Description</label>
+          <input
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            placeholder="Déroulé, contenu de l'atelier…"
+            className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
+          />
+        </div>
       </div>
     </div>
   )
@@ -182,6 +199,12 @@ export default function AdminAteliersPage() {
     return hasAtLeastOneName(form.translations) && !!form.coffret_id
   }
 
+  // N'envoie que les langues effectivement remplies : une langue laissée vide doit pouvoir
+  // être générée automatiquement côté serveur plutôt que d'être explicitement effacée.
+  function nonEmptyTranslations(translations: Record<string, string>): Record<string, string> {
+    return Object.fromEntries(Object.entries(translations).filter(([, v]) => v.trim()))
+  }
+
   async function createAtelier() {
     if (!isFormValid(createForm)) return
     setIsBusy(true)
@@ -189,7 +212,7 @@ export default function AdminAteliersPage() {
       await apiFetch('/ateliers', {
         method: 'POST',
         body: JSON.stringify({
-          translations: createForm.translations,
+          translations: nonEmptyTranslations(createForm.translations),
           coffret_id: createForm.coffret_id,
           description: createForm.description.trim() || null,
           volume_ml: createForm.volume_ml.trim() ? Number(createForm.volume_ml) : null,
@@ -222,7 +245,7 @@ export default function AdminAteliersPage() {
       await apiFetch(`/ateliers/${selected.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
-          translations: editForm.translations,
+          translations: nonEmptyTranslations(editForm.translations),
           coffret_id: editForm.coffret_id,
           description: editForm.description.trim() || null,
           volume_ml: editForm.volume_ml.trim() ? Number(editForm.volume_ml) : null,
@@ -319,9 +342,8 @@ export default function AdminAteliersPage() {
             <thead className="bg-gray-50/40">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Image</th>
-                {LANGUAGES.map((lang) => (
-                  <th key={lang.code} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Nom ({lang.code.toUpperCase()})</th>
-                ))}
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Nom</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Traductions</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Coffret</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Quantité</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Statut</th>
@@ -330,12 +352,14 @@ export default function AdminAteliersPage() {
             <tbody className="divide-y divide-gray-200">
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={4 + LANGUAGES.length} className="px-4 py-10 text-center text-sm text-gray-500">
+                  <td colSpan={6} className="px-4 py-10 text-center text-sm text-gray-500">
                     {isBusy ? 'Chargement...' : 'Aucun atelier.'}
                   </td>
                 </tr>
               )}
-              {filtered.map((atelier) => (
+              {filtered.map((atelier) => {
+                const translatedCount = LANGUAGES.filter((l) => l.code !== 'fr' && atelier.translations[l.code]).length
+                return (
                 <tr key={atelier.id} className="cursor-pointer transition-colors hover:bg-gray-100/60" onClick={() => openDetail(atelier)}>
                   <td className="px-4 py-3">
                     {atelier.image_url ? (
@@ -344,12 +368,17 @@ export default function AdminAteliersPage() {
                       <div className="h-10 w-10 rounded-lg bg-gray-200" />
                     )}
                   </td>
-                  {LANGUAGES.map((lang) => (
-                    <td key={lang.code} className="px-4 py-3">
-                      <p className="text-sm font-medium text-gray-900">{atelier.translations[lang.code] || <span className="text-gray-400 italic font-normal">—</span>}</p>
-                      {lang.code === 'fr' && atelier.description && <p className="text-xs text-gray-600 truncate max-w-xs">{atelier.description}</p>}
-                    </td>
-                  ))}
+                  <td className="px-4 py-3">
+                    <p className="text-sm font-medium text-gray-900">{atelier.translations.fr || <span className="text-gray-400 italic font-normal">—</span>}</p>
+                    {atelier.description && <p className="text-xs text-gray-600 truncate max-w-xs">{atelier.description}</p>}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-gray-600">
+                    {translatedCount === 0 ? (
+                      <span className="text-amber-600">Aucune</span>
+                    ) : (
+                      `${translatedCount}/${LANGUAGES.length - 1} langues`
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-sm text-gray-600">
                     {coffretsById.get(atelier.coffret_id) ? coffretName(coffretsById.get(atelier.coffret_id)!) : '—'}
                   </td>
@@ -367,7 +396,8 @@ export default function AdminAteliersPage() {
                     </button>
                   </td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         </div>

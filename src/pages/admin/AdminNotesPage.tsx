@@ -292,6 +292,12 @@ export default function AdminNotesPage() {
     return parts.length > 0 ? parts : null
   }
 
+  // N'envoie que les langues effectivement remplies : une langue laissée vide doit pouvoir
+  // être générée automatiquement côté serveur plutôt que d'être explicitement effacée.
+  function nonEmptyTranslations(translations: Record<string, string>): Record<string, string> {
+    return Object.fromEntries(Object.entries(translations).filter(([, v]) => v.trim()))
+  }
+
   async function createNote() {
     if (!createForm.translations.fr?.trim()) return
     setIsBusy(true)
@@ -299,7 +305,7 @@ export default function AdminNotesPage() {
       await apiFetch('/ingredients', {
         method: 'POST',
         body: JSON.stringify({
-          translations: createForm.translations,
+          translations: nonEmptyTranslations(createForm.translations),
           type: createForm.type,
           code: createForm.code.trim() || null,
           category: createForm.category.trim() || null,
@@ -353,7 +359,7 @@ export default function AdminNotesPage() {
       await apiFetch(`/ingredients/${selected.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
-          translations: translationsToSave,
+          translations: nonEmptyTranslations(translationsToSave),
           type: editForm.type,
           code: editForm.code.trim() || null,
           category: editForm.category.trim() || null,
@@ -419,7 +425,7 @@ export default function AdminNotesPage() {
     try {
       await apiFetch('/coffrets', {
         method: 'POST',
-        body: JSON.stringify({ translations: createCoffretForm.translations }),
+        body: JSON.stringify({ translations: nonEmptyTranslations(createCoffretForm.translations) }),
       })
       setIsCreateCoffretOpen(false)
       setCreateCoffretForm(emptyCoffretForm())

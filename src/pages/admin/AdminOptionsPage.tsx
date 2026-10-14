@@ -48,7 +48,7 @@ function atelierName(atelier: Atelier): string {
 
 function emptyForm() {
   return {
-    translations: { fr: '' } as Record<string, string>,
+    translations: Object.fromEntries(LANGUAGES.map((l) => [l.code, ''])) as Record<string, string>,
     description: '',
     coffret_ids: [] as number[],
     atelier_ids: [] as number[],
@@ -93,13 +93,11 @@ function OptionFormFields({
   setForm,
   coffrets,
   ateliers,
-  existingTranslations,
 }: {
   form: ReturnType<typeof emptyForm>
   setForm: (f: ReturnType<typeof emptyForm>) => void
   coffrets: Coffret[]
   ateliers: Atelier[]
-  existingTranslations?: Record<string, string>
 }) {
   function toggleCoffret(coffretId: number) {
     setForm({
@@ -119,36 +117,28 @@ function OptionFormFields({
     })
   }
 
-  const otherLanguages = LANGUAGES.filter((l) => l.code !== 'fr')
-
   return (
     <div className="space-y-4">
       <div>
-        <label className="text-xs text-gray-600 mb-1 block">Nom (Français) *</label>
-        <input
-          value={form.translations.fr ?? ''}
-          onChange={(e) => setForm({ ...form, translations: { ...form.translations, fr: e.target.value } })}
-          placeholder="Ex : Ruban"
-          className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
-        />
-        <p className="text-[11px] text-gray-500 mt-1">
-          Les autres langues sont générées automatiquement à l'enregistrement.
+        <label className="text-xs text-gray-600 mb-1.5 block">Nom traduit</label>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {LANGUAGES.map((lang) => (
+            <div key={lang.code}>
+              <label className="text-[11px] text-gray-500 mb-1 block">{lang.label} {lang.code === 'fr' ? '*' : ''}</label>
+              <input
+                value={form.translations[lang.code] ?? ''}
+                onChange={(e) => setForm({ ...form, translations: { ...form.translations, [lang.code]: e.target.value } })}
+                placeholder={lang.code === 'fr' ? 'Ex : Ruban' : '(générée automatiquement si vide)'}
+                dir={lang.code === 'ar' ? 'rtl' : 'ltr'}
+                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
+              />
+            </div>
+          ))}
+        </div>
+        <p className="text-[11px] text-gray-500 mt-1.5">
+          Seul le français est obligatoire — les autres langues sont générées automatiquement à l'enregistrement si laissées vides, et restent modifiables ici.
         </p>
       </div>
-
-      {existingTranslations && otherLanguages.some((l) => existingTranslations[l.code]) && (
-        <div className="rounded-lg border border-gray-200 bg-white p-3">
-          <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-2">Traductions générées</p>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3">
-            {otherLanguages.map((lang) => (
-              <div key={lang.code} className="text-xs">
-                <span className="text-gray-500">{lang.label} : </span>
-                <span className="text-gray-900">{existingTranslations[lang.code] || '—'}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div>
         <label className="text-xs text-gray-600 mb-1 block">Description</label>
@@ -277,6 +267,12 @@ export default function AdminOptionsPage() {
     return hasAtLeastOneName(form.translations)
   }
 
+  // N'envoie que les langues effectivement remplies : une langue laissée vide doit pouvoir
+  // être générée automatiquement côté serveur plutôt que d'être explicitement effacée.
+  function nonEmptyTranslations(translations: Record<string, string>): Record<string, string> {
+    return Object.fromEntries(Object.entries(translations).filter(([, v]) => v.trim()))
+  }
+
   async function createOption() {
     if (!isFormValid(createForm)) return
     setIsBusy(true)
@@ -284,7 +280,7 @@ export default function AdminOptionsPage() {
       await apiFetch('/options', {
         method: 'POST',
         body: JSON.stringify({
-          translations: createForm.translations,
+          translations: nonEmptyTranslations(createForm.translations),
           description: createForm.description.trim() || null,
           coffret_ids: createForm.coffret_ids,
           atelier_ids: createForm.atelier_ids,
@@ -303,7 +299,7 @@ export default function AdminOptionsPage() {
   function openDetail(option: OptionItem) {
     setSelected(option)
     setEditForm({
-      translations: { fr: option.translations.fr ?? '' },
+      translations: { ...Object.fromEntries(LANGUAGES.map((l) => [l.code, ''])), ...option.translations },
       description: option.description ?? '',
       coffret_ids: option.coffret_ids,
       atelier_ids: option.atelier_ids,
@@ -317,7 +313,7 @@ export default function AdminOptionsPage() {
       await apiFetch(`/options/${selected.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
-          translations: editForm.translations,
+          translations: nonEmptyTranslations(editForm.translations),
           description: editForm.description.trim() || null,
           coffret_ids: editForm.coffret_ids,
           atelier_ids: editForm.atelier_ids,
@@ -524,7 +520,7 @@ export default function AdminOptionsPage() {
                 </label>
               )}
             </div>
-            <OptionFormFields form={editForm} setForm={setEditForm} coffrets={coffrets} ateliers={ateliers} existingTranslations={selected.translations} />
+            <OptionFormFields form={editForm} setForm={setEditForm} coffrets={coffrets} ateliers={ateliers} />
             <div className="flex gap-2 pt-2">
               <button onClick={deleteOption} className="flex items-center gap-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-700 px-4 py-2 rounded-lg text-sm transition-colors"><Trash2 size={14} /> Supprimer</button>
               <div className="flex-1" />
