@@ -5,8 +5,19 @@
 
 const INGREDIENTS_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
 
-export async function fetchNoteNamesByType(ingredientType: 'top' | 'heart' | 'base'): Promise<string[]> {
+export async function fetchNoteNamesByType(ingredientType: 'top' | 'heart' | 'base' | 'booster'): Promise<string[]> {
   const res = await fetch(`${INGREDIENTS_API_URL}/ingredients?type=${ingredientType}&active_only=true`)
+  if (!res.ok) return []
+  const rows = await res.json() as Array<{ translations?: Record<string, string> }>
+  return rows
+    .map(r => r.translations?.fr)
+    .filter((name): name is string => !!name && name.trim() !== '')
+    .sort((a, b) => a.localeCompare(b, 'fr'))
+}
+
+// Options facultatives (Ruban, Champagne, Flacon murano...) — table `options` du dashboard.
+export async function fetchOptionNames(): Promise<string[]> {
+  const res = await fetch(`${INGREDIENTS_API_URL}/options?active_only=true`)
   if (!res.ok) return []
   const rows = await res.json() as Array<{ translations?: Record<string, string> }>
   return rows

@@ -99,6 +99,7 @@ export const mockDashboards: Record<string, Dashboard> = {
       { id: 'tickets', name: 'Tickets', icon: 'Headphones', metricIds: [], chartIds: [] },
       { id: 'notes', name: 'Coffrets et Notes', icon: 'StickyNote', metricIds: [], chartIds: [] },
       { id: 'ateliers', name: 'Ateliers', icon: 'FileText', metricIds: [], chartIds: [] },
+      { id: 'options', name: 'Options', icon: 'FileText', metricIds: [], chartIds: [] },
     ],
     metrics: [],
     charts: [

@@ -5,9 +5,16 @@ import { Plus, Trash2, X as XIcon } from 'lucide-react'
 // fois côté client. Par défaut disponibles pour tous les coffrets ; une sélection explicite
 // de coffrets restreint l'option à ceux-là uniquement (voir option_coffrets côté serveur).
 
-// Pas de public anglophone visé pour l'instant, même choix que pour les ateliers.
+// Le français est le seul champ saisi manuellement ; les autres langues sont générées
+// automatiquement côté serveur (OpenAI) à la création/modification, et affichées ici en
+// lecture seule une fois l'option enregistrée — même principe que Notes et Ateliers.
 const LANGUAGES: { code: string; label: string }[] = [
   { code: 'fr', label: 'Français' },
+  { code: 'en', label: 'Anglais' },
+  { code: 'es', label: 'Espagnol' },
+  { code: 'pt', label: 'Portugais' },
+  { code: 'ru', label: 'Russe' },
+  { code: 'ar', label: 'Arabe' },
 ]
 
 type OptionItem = {
@@ -16,6 +23,7 @@ type OptionItem = {
   image_url: string | null
   is_active: boolean
   coffret_ids: number[]
+  atelier_ids: number[]
   translations: Record<string, string>
 }
 
@@ -24,15 +32,26 @@ type Coffret = {
   translations: Record<string, string>
 }
 
+type Atelier = {
+  id: number
+  coffret_id: number
+  translations: Record<string, string>
+}
+
 function coffretName(coffret: Coffret): string {
   return coffret.translations.fr || Object.values(coffret.translations)[0] || `#${coffret.id}`
 }
 
+function atelierName(atelier: Atelier): string {
+  return atelier.translations.fr || Object.values(atelier.translations)[0] || `#${atelier.id}`
+}
+
 function emptyForm() {
   return {
-    translations: Object.fromEntries(LANGUAGES.map((l) => [l.code, ''])) as Record<string, string>,
+    translations: { fr: '' } as Record<string, string>,
     description: '',
     coffret_ids: [] as number[],
+    atelier_ids: [] as number[],
   }
 }
 
@@ -73,10 +92,14 @@ function OptionFormFields({
   form,
   setForm,
   coffrets,
+  ateliers,
+  existingTranslations,
 }: {
   form: ReturnType<typeof emptyForm>
   setForm: (f: ReturnType<typeof emptyForm>) => void
   coffrets: Coffret[]
+  ateliers: Atelier[]
+  existingTranslations?: Record<string, string>
 }) {
   function toggleCoffret(coffretId: number) {
     setForm({
@@ -87,20 +110,47 @@ function OptionFormFields({
     })
   }
 
+  function toggleAtelier(atelierId: number) {
+    setForm({
+      ...form,
+      atelier_ids: form.atelier_ids.includes(atelierId)
+        ? form.atelier_ids.filter((id) => id !== atelierId)
+        : [...form.atelier_ids, atelierId],
+    })
+  }
+
+  const otherLanguages = LANGUAGES.filter((l) => l.code !== 'fr')
+
   return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-      {LANGUAGES.map((lang) => (
-        <div key={lang.code}>
-          <label className="text-xs text-gray-600 mb-1 block">Nom ({lang.label}) {lang.code === 'fr' ? '*' : ''}</label>
-          <input
-            value={form.translations[lang.code] ?? ''}
-            onChange={(e) => setForm({ ...form, translations: { ...form.translations, [lang.code]: e.target.value } })}
-            placeholder={lang.code === 'fr' ? 'Ex : Ruban' : 'Ex: Ribbon'}
-            className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
-          />
+    <div className="space-y-4">
+      <div>
+        <label className="text-xs text-gray-600 mb-1 block">Nom (Français) *</label>
+        <input
+          value={form.translations.fr ?? ''}
+          onChange={(e) => setForm({ ...form, translations: { ...form.translations, fr: e.target.value } })}
+          placeholder="Ex : Ruban"
+          className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
+        />
+        <p className="text-[11px] text-gray-500 mt-1">
+          Les autres langues sont générées automatiquement à l'enregistrement.
+        </p>
+      </div>
+
+      {existingTranslations && otherLanguages.some((l) => existingTranslations[l.code]) && (
+        <div className="rounded-lg border border-gray-200 bg-white p-3">
+          <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-2">Traductions générées</p>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3">
+            {otherLanguages.map((lang) => (
+              <div key={lang.code} className="text-xs">
+                <span className="text-gray-500">{lang.label} : </span>
+                <span className="text-gray-900">{existingTranslations[lang.code] || '—'}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      ))}
-      <div className="md:col-span-2">
+      )}
+
+      <div>
         <label className="text-xs text-gray-600 mb-1 block">Description</label>
         <input
           value={form.description}
@@ -109,7 +159,8 @@ function OptionFormFields({
           className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
         />
       </div>
-      <div className="md:col-span-2">
+
+      <div>
         <label className="text-xs text-gray-600 mb-1 block">
           Coffrets concernés — laisser vide pour la rendre disponible à tous les coffrets
         </label>
@@ -130,6 +181,28 @@ function OptionFormFields({
           ))}
         </div>
       </div>
+
+      <div>
+        <label className="text-xs text-gray-600 mb-1 block">
+          Ateliers concernés — laisser vide pour la rendre disponible à tous les ateliers
+        </label>
+        <div className="flex flex-wrap gap-2">
+          {ateliers.map((a) => (
+            <button
+              key={a.id}
+              type="button"
+              onClick={() => toggleAtelier(a.id)}
+              className={`rounded-full px-3 py-1.5 text-xs font-medium border transition-colors ${
+                form.atelier_ids.includes(a.id)
+                  ? 'bg-indigo-600 border-indigo-600 text-white'
+                  : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              {atelierName(a)}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
@@ -137,6 +210,7 @@ function OptionFormFields({
 export default function AdminOptionsPage() {
   const [options, setOptions] = useState<OptionItem[]>([])
   const [coffrets, setCoffrets] = useState<Coffret[]>([])
+  const [ateliers, setAteliers] = useState<Atelier[]>([])
   const [isBusy, setIsBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
@@ -151,12 +225,14 @@ export default function AdminOptionsPage() {
     setError(null)
     setIsBusy(true)
     try {
-      const [optionsData, coffretsData] = await Promise.all([
+      const [optionsData, coffretsData, ateliersData] = await Promise.all([
         apiFetch('/options'),
         apiFetch('/coffrets'),
+        apiFetch('/ateliers'),
       ])
       setOptions(Array.isArray(optionsData) ? (optionsData as OptionItem[]) : [])
       setCoffrets(Array.isArray(coffretsData) ? (coffretsData as Coffret[]) : [])
+      setAteliers(Array.isArray(ateliersData) ? (ateliersData as Atelier[]) : [])
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur inconnue')
     } finally {
@@ -167,6 +243,7 @@ export default function AdminOptionsPage() {
   useEffect(() => { void refresh() }, [])
 
   const coffretsById = useMemo(() => new Map(coffrets.map((c) => [c.id, c])), [coffrets])
+  const ateliersById = useMemo(() => new Map(ateliers.map((a) => [a.id, a])), [ateliers])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -192,6 +269,7 @@ export default function AdminOptionsPage() {
           translations: createForm.translations,
           description: createForm.description.trim() || null,
           coffret_ids: createForm.coffret_ids,
+          atelier_ids: createForm.atelier_ids,
         }),
       })
       setIsCreateOpen(false)
@@ -207,9 +285,10 @@ export default function AdminOptionsPage() {
   function openDetail(option: OptionItem) {
     setSelected(option)
     setEditForm({
-      translations: { ...Object.fromEntries(LANGUAGES.map((l) => [l.code, ''])), ...option.translations },
+      translations: { fr: option.translations.fr ?? '' },
       description: option.description ?? '',
       coffret_ids: option.coffret_ids,
+      atelier_ids: option.atelier_ids,
     })
   }
 
@@ -223,6 +302,7 @@ export default function AdminOptionsPage() {
           translations: editForm.translations,
           description: editForm.description.trim() || null,
           coffret_ids: editForm.coffret_ids,
+          atelier_ids: editForm.atelier_ids,
           is_active: selected.is_active,
         }),
       })
@@ -316,22 +396,24 @@ export default function AdminOptionsPage() {
             <thead className="bg-gray-50/40">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Image</th>
-                {LANGUAGES.map((lang) => (
-                  <th key={lang.code} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Nom ({lang.code.toUpperCase()})</th>
-                ))}
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Nom</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Traductions</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Coffrets</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Ateliers</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Statut</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={3 + LANGUAGES.length} className="px-4 py-10 text-center text-sm text-gray-500">
+                  <td colSpan={6} className="px-4 py-10 text-center text-sm text-gray-500">
                     {isBusy ? 'Chargement...' : 'Aucune option.'}
                   </td>
                 </tr>
               )}
-              {filtered.map((option) => (
+              {filtered.map((option) => {
+                const translatedCount = LANGUAGES.filter((l) => l.code !== 'fr' && option.translations[l.code]).length
+                return (
                 <tr key={option.id} className="cursor-pointer transition-colors hover:bg-gray-100/60" onClick={() => openDetail(option)}>
                   <td className="px-4 py-3">
                     {option.image_url ? (
@@ -340,16 +422,26 @@ export default function AdminOptionsPage() {
                       <div className="h-10 w-10 rounded-lg bg-gray-200" />
                     )}
                   </td>
-                  {LANGUAGES.map((lang) => (
-                    <td key={lang.code} className="px-4 py-3">
-                      <p className="text-sm font-medium text-gray-900">{option.translations[lang.code] || <span className="text-gray-400 italic font-normal">—</span>}</p>
-                      {lang.code === 'fr' && option.description && <p className="text-xs text-gray-600 truncate max-w-xs">{option.description}</p>}
-                    </td>
-                  ))}
+                  <td className="px-4 py-3">
+                    <p className="text-sm font-medium text-gray-900">{option.translations.fr || <span className="text-gray-400 italic font-normal">—</span>}</p>
+                    {option.description && <p className="text-xs text-gray-600 truncate max-w-xs">{option.description}</p>}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-gray-600">
+                    {translatedCount === 0 ? (
+                      <span className="text-amber-600">Aucune</span>
+                    ) : (
+                      `${translatedCount}/${LANGUAGES.length - 1} langues`
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-sm text-gray-600">
                     {option.coffret_ids.length === 0
                       ? 'Tous les coffrets'
                       : option.coffret_ids.map((id) => (coffretsById.get(id) ? coffretName(coffretsById.get(id)!) : `#${id}`)).join(', ')}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-600">
+                    {option.atelier_ids.length === 0
+                      ? 'Tous les ateliers'
+                      : option.atelier_ids.map((id) => (ateliersById.get(id) ? atelierName(ateliersById.get(id)!) : `#${id}`)).join(', ')}
                   </td>
                   <td className="px-4 py-3">
                     <button
@@ -362,7 +454,8 @@ export default function AdminOptionsPage() {
                     </button>
                   </td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -376,7 +469,7 @@ export default function AdminOptionsPage() {
               <h2 className="text-lg font-semibold text-gray-900">Nouvelle option</h2>
               <button onClick={() => setIsCreateOpen(false)} className="text-gray-600 hover:text-gray-900"><XIcon size={18} /></button>
             </div>
-            <OptionFormFields form={createForm} setForm={setCreateForm} coffrets={coffrets} />
+            <OptionFormFields form={createForm} setForm={setCreateForm} coffrets={coffrets} ateliers={ateliers} />
             <div className="flex gap-2 pt-2">
               <button onClick={createOption} disabled={isBusy || !isFormValid(createForm)} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50">Créer</button>
               <button onClick={() => setIsCreateOpen(false)} className="text-gray-500 hover:text-gray-900 px-4 py-2 rounded-lg text-sm transition-colors">Annuler</button>
@@ -413,7 +506,7 @@ export default function AdminOptionsPage() {
                 </label>
               )}
             </div>
-            <OptionFormFields form={editForm} setForm={setEditForm} coffrets={coffrets} />
+            <OptionFormFields form={editForm} setForm={setEditForm} coffrets={coffrets} ateliers={ateliers} existingTranslations={selected.translations} />
             <div className="flex gap-2 pt-2">
               <button onClick={deleteOption} className="flex items-center gap-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-700 px-4 py-2 rounded-lg text-sm transition-colors"><Trash2 size={14} /> Supprimer</button>
               <div className="flex-1" />

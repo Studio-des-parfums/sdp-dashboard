@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { formulasApi, ordersApi, customersApi, filesApi } from '../../api/ocrClient'
-import { fetchNoteNamesByType } from '../../api/ingredientsClient'
+import { fetchNoteNamesByType, fetchOptionNames } from '../../api/ingredientsClient'
 import { useToast } from '../../components/ui/Toast'
 import { Button } from '../../components/ui/Button'
 
@@ -22,6 +22,8 @@ interface Formula {
   top_notes: Note[]
   heart_notes: Note[]
   base_notes: Note[]
+  booster_notes: Note[]
+  options: string[]
 }
 
 interface Order {
@@ -104,14 +106,17 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
   const [ordersLoading, setOrdersLoading] = useState(false)
   const [generatingPdf, setGeneratingPdf] = useState(false)
   const [thumbnailVersion, setThumbnailVersion] = useState(0)
-  const [noteOptions, setNoteOptions] = useState<{ top: string[]; heart: string[]; base: string[] }>({ top: [], heart: [], base: [] })
+  const [noteOptions, setNoteOptions] = useState<{ top: string[]; heart: string[]; base: string[]; booster: string[] }>({ top: [], heart: [], base: [], booster: [] })
+  const [optionCatalog, setOptionCatalog] = useState<string[]>([])
 
   useEffect(() => {
     Promise.all([
       fetchNoteNamesByType('top'),
       fetchNoteNamesByType('heart'),
       fetchNoteNamesByType('base'),
-    ]).then(([top, heart, base]) => setNoteOptions({ top, heart, base }))
+      fetchNoteNamesByType('booster'),
+    ]).then(([top, heart, base, booster]) => setNoteOptions({ top, heart, base, booster }))
+    fetchOptionNames().then(setOptionCatalog)
   }, [])
 
   useEffect(() => {
@@ -119,7 +124,8 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
       formulasApi.getById(formulaId),
       customerId ? customersApi.getById(customerId) : Promise.resolve(null),
     ])
-      .then(([f, cust]) => {
+      .then(([raw, cust]) => {
+        const f: Formula = { ...raw, booster_notes: raw.booster_notes || [], options: raw.options || [] }
         setFormula(f)
         setEditingData(JSON.parse(JSON.stringify(f)))
         if (cust) {
@@ -174,7 +180,9 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
     finally { setOrdersLoading(false) }
   }
 
-  const handleNoteChange = (noteType: 'top_notes' | 'heart_notes' | 'base_notes', index: number, field: 'name' | 'quantity', value: string) => {
+  type NoteField = 'top_notes' | 'heart_notes' | 'base_notes' | 'booster_notes'
+
+  const handleNoteChange = (noteType: NoteField, index: number, field: 'name' | 'quantity', value: string) => {
     if (!editingData) return
     const updated = { ...editingData }
     const notes = [...updated[noteType]]
@@ -183,18 +191,27 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
     setEditingData(updated)
   }
 
-  const handleAddNote = (noteType: 'top_notes' | 'heart_notes' | 'base_notes') => {
+  const handleAddNote = (noteType: NoteField) => {
     if (!editingData) return
     const updated = { ...editingData }
     updated[noteType] = [...updated[noteType], { name: '', quantity: '' }]
     setEditingData(updated)
   }
 
-  const handleRemoveNote = (noteType: 'top_notes' | 'heart_notes' | 'base_notes', index: number) => {
+  const handleRemoveNote = (noteType: NoteField, index: number) => {
     if (!editingData) return
     const updated = { ...editingData }
     updated[noteType] = updated[noteType].filter((_, i) => i !== index)
     setEditingData(updated)
+  }
+
+  const handleToggleOption = (name: string) => {
+    if (!editingData) return
+    const has = editingData.options.includes(name)
+    setEditingData({
+      ...editingData,
+      options: has ? editingData.options.filter(o => o !== name) : [...editingData.options, name],
+    })
   }
 
   const handleSave = async () => {
@@ -206,12 +223,14 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
         top_notes: editingData.top_notes,
         heart_notes: editingData.heart_notes,
         base_notes: editingData.base_notes,
+        booster_notes: editingData.booster_notes,
+        options: editingData.options,
       })
       setFormula(JSON.parse(JSON.stringify(editingData)))
       setIsEditing(false)
-      showSuccess('Notes enregistrées')
+      showSuccess('Formule enregistrée')
     } catch {
-      showError('Erreur', 'Impossible de sauvegarder les notes')
+      showError('Erreur', 'Impossible de sauvegarder la formule')
     } finally {
       setIsSaving(false)
     }
@@ -226,9 +245,12 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
   const topStats = calculateNotesStats(displayData?.top_notes || [])
   const heartStats = calculateNotesStats(displayData?.heart_notes || [])
   const baseStats = calculateNotesStats(displayData?.base_notes || [])
-  const grandTotal = topStats.total + heartStats.total + baseStats.total
-  const allInvalidNotes = [...topStats.invalidNotes, ...heartStats.invalidNotes, ...baseStats.invalidNotes]
+  const boosterStats = calculateNotesStats(displayData?.booster_notes || [])
+  const grandTotal = topStats.total + heartStats.total + baseStats.total + boosterStats.total
+  const allInvalidNotes = [...topStats.invalidNotes, ...heartStats.invalidNotes, ...baseStats.invalidNotes, ...boosterStats.invalidNotes]
   const hasAnyInvalid = allInvalidNotes.length > 0
+  const hasBoosterNotes = (displayData?.booster_notes?.length || 0) > 0
+  const hasOptions = (displayData?.options?.length || 0) > 0
 
   if (loading) {
     return (
@@ -273,7 +295,7 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
 
           {!isEditing ? (
             <>
-              <div className="grid grid-cols-3 gap-4">
+              <div className={`grid gap-4 ${hasBoosterNotes ? 'grid-cols-4' : 'grid-cols-3'}`}>
                 {(['top_notes', 'heart_notes', 'base_notes'] as const).map((noteType, ti) => {
                   const stats = [topStats, heartStats, baseStats][ti]
                   const notes = displayData?.[noteType] || []
@@ -308,6 +330,32 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
                     </div>
                   )
                 })}
+                {hasBoosterNotes && (
+                  <div>
+                    <h5 className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold mb-2">
+                      Notes booster
+                    </h5>
+                    <ul className="space-y-1">
+                      {(displayData?.booster_notes || []).map((note, ni) => (
+                        <li key={note.id || ni} className="flex justify-between text-xs text-gray-600">
+                          <span>{note.name}</span>
+                          <span className="text-gray-600">{note.quantity}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    {!hasAnyInvalid && (
+                      <div className="mt-2 pt-2 border-t border-gray-200 text-[11px]">
+                        <span className="text-gray-600">Total: </span>
+                        <span className="text-gray-900 font-medium">{boosterStats.total.toFixed(2)} ml</span>
+                        {grandTotal > 0 && (
+                          <span className="text-gray-600 ml-1">
+                            ({((boosterStats.total / grandTotal) * 100).toFixed(1)}%)
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {!hasAnyInvalid && (
@@ -323,6 +371,19 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
                 </div>
               )}
 
+              {hasOptions && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <h5 className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold mb-2">Options choisies</h5>
+                  <div className="flex flex-wrap gap-2">
+                    {(displayData?.options || []).map((option, oi) => (
+                      <span key={oi} className="text-xs bg-indigo-50 border border-indigo-200 text-indigo-700 px-2 py-1 rounded-lg">
+                        {option}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {formula.comment && (
                 <div className="mt-4 pt-4 border-t border-gray-200">
                   <h5 className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold mb-1">Commentaire</h5>
@@ -332,7 +393,7 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
             </>
           ) : (
             <>
-              <div className="mb-4">
+              <div className="mb-5">
                 <label className="text-xs text-gray-600 mb-1 block">Nom du parfum</label>
                 <input
                   type="text"
@@ -341,61 +402,81 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
                   className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-indigo-500 transition-colors"
                 />
               </div>
-              <div className="grid grid-cols-3 gap-4">
-                {(['top_notes', 'heart_notes', 'base_notes'] as const).map((noteType, ti) => (
-                  <div key={noteType}>
-                    <h5 className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold mb-2">
-                      {['Notes de tête', 'Notes de cœur', 'Notes de fond'][ti]}
-                    </h5>
-                    <div className="space-y-1">
-                      {editingData?.[noteType]?.map((note, ni) => (
-                        <div key={ni} className="flex gap-1 items-center">
+
+              <div className="space-y-5">
+                {([
+                  { type: 'top_notes' as const, label: 'Notes de tête', options: noteOptions.top, accent: 'border-sky-200 bg-sky-50/50' },
+                  { type: 'heart_notes' as const, label: 'Notes de cœur', options: noteOptions.heart, accent: 'border-rose-200 bg-rose-50/50' },
+                  { type: 'base_notes' as const, label: 'Notes de fond', options: noteOptions.base, accent: 'border-amber-200 bg-amber-50/50' },
+                  { type: 'booster_notes' as const, label: 'Notes booster', options: noteOptions.booster, accent: 'border-violet-200 bg-violet-50/50' },
+                ]).map(({ type, label, options, accent }) => (
+                  <div key={type} className={`rounded-lg border ${accent} p-3`}>
+                    <h5 className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold mb-2">{label}</h5>
+                    <div className="space-y-2">
+                      {editingData?.[type]?.map((note, ni) => (
+                        <div key={ni} className="flex flex-wrap gap-2 items-center">
                           <select
                             value={note.name}
-                            onChange={e => handleNoteChange(noteType, ni, 'name', e.target.value)}
-                            className="flex-1 bg-gray-50 border border-gray-200 rounded px-2 py-1 text-xs text-gray-900 outline-none focus:border-indigo-500"
+                            onChange={e => handleNoteChange(type, ni, 'name', e.target.value)}
+                            className="flex-1 min-w-0 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 outline-none focus:border-indigo-500"
                           >
                             <option value="">-- Choisir --</option>
-                            {note.name
-                              && !noteOptions.top.includes(note.name)
-                              && !noteOptions.heart.includes(note.name)
-                              && !noteOptions.base.includes(note.name) && (
+                            {note.name && !options.includes(note.name) && (
                               <option value={note.name}>{note.name}</option>
                             )}
-                            <optgroup label="Notes de Tête">
-                              {noteOptions.top.map(o => <option key={o} value={o}>{o}</option>)}
-                            </optgroup>
-                            <optgroup label="Notes de Cœur">
-                              {noteOptions.heart.map(o => <option key={o} value={o}>{o}</option>)}
-                            </optgroup>
-                            <optgroup label="Notes de Fond">
-                              {noteOptions.base.map(o => <option key={o} value={o}>{o}</option>)}
-                            </optgroup>
+                            {options.map(o => <option key={o} value={o}>{o}</option>)}
                           </select>
                           <input
                             type="text"
                             value={note.quantity}
-                            onChange={e => handleNoteChange(noteType, ni, 'quantity', e.target.value)}
-                            className="w-14 bg-gray-50 border border-gray-200 rounded px-2 py-1 text-xs text-gray-900 outline-none focus:border-indigo-500"
+                            onChange={e => handleNoteChange(type, ni, 'quantity', e.target.value)}
+                            className="w-16 shrink-0 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 outline-none focus:border-indigo-500"
                             placeholder="Qté"
                           />
                           <button
-                            onClick={() => handleRemoveNote(noteType, ni)}
-                            className="text-red-700 hover:text-red-700 text-xs"
+                            onClick={() => handleRemoveNote(type, ni)}
+                            className="shrink-0 text-red-700 hover:text-red-800 text-xs w-6 h-6 flex items-center justify-center rounded hover:bg-red-50"
                           >
                             ✕
                           </button>
                         </div>
                       ))}
                       <button
-                        onClick={() => handleAddNote(noteType)}
-                        className="text-xs text-indigo-600 hover:text-indigo-600 transition-colors"
+                        onClick={() => handleAddNote(type)}
+                        className="text-xs text-indigo-600 hover:text-indigo-700 font-medium transition-colors"
                       >
-                        + Ajouter
+                        + Ajouter une note
                       </button>
                     </div>
                   </div>
                 ))}
+
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3">
+                  <h5 className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold mb-2">Options</h5>
+                  {optionCatalog.length === 0 ? (
+                    <p className="text-xs text-gray-500">Aucune option disponible dans le catalogue.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {optionCatalog.map(name => {
+                        const selected = editingData?.options.includes(name) ?? false
+                        return (
+                          <button
+                            key={name}
+                            type="button"
+                            onClick={() => handleToggleOption(name)}
+                            className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                              selected
+                                ? 'bg-emerald-600 border-emerald-600 text-white'
+                                : 'bg-white border-gray-200 text-gray-700 hover:border-emerald-300'
+                            }`}
+                          >
+                            {selected ? '✓ ' : ''}{name}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-gray-200">
