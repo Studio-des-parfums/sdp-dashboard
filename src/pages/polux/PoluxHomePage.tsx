@@ -1,17 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { poluxApi } from '../../api/poluxClient'
-import type { PoluxProject, PoluxTask, PoluxTeam } from '../../types/polux'
-import { formatDeadline, isOverdue, STATUS_LABEL } from '../../components/polux/priority'
+import type { PoluxTask, PoluxTeam } from '../../types/polux'
+import { deadlineClass, formatDeadline, isOverdue, STATUS_LABEL } from '../../components/polux/priority'
 
 export default function PoluxHomePage() {
   const [teams, setTeams] = useState<PoluxTeam[]>([])
-  const [projects, setProjects] = useState<PoluxProject[]>([])
   const [tasks, setTasks] = useState<PoluxTask[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([poluxApi.getTeams(), poluxApi.getProjects(), poluxApi.getTasks()])
-      .then(([t, p, tk]) => { setTeams(t); setProjects(p); setTasks(tk) })
+    Promise.all([poluxApi.getTeams(), poluxApi.getTasks()])
+      .then(([t, tk]) => { setTeams(t); setTasks(tk) })
       .finally(() => setLoading(false))
   }, [])
 
@@ -37,7 +36,7 @@ export default function PoluxHomePage() {
     <div className="space-y-6 p-6">
       <div className="rounded-xl border border-gray-200 bg-gray-100 p-6">
         <h2 className="text-xl font-semibold text-gray-900">Polux</h2>
-        <p className="mt-1 text-sm text-gray-500">Gestion de projets — {projects.length} projets actifs, {teams.length} équipes.</p>
+        <p className="mt-1 text-sm text-gray-500">Gestion de projets — {teams.length} équipes.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -64,7 +63,7 @@ export default function PoluxHomePage() {
                 <p className="text-sm font-medium text-gray-900">{t.title}</p>
                 <p className="text-xs text-gray-600">{STATUS_LABEL[t.status]}</p>
               </div>
-              <span className={`text-sm ${isOverdue(t.deadline, t.status) ? 'font-semibold text-red-700' : 'text-gray-600'}`}>{formatDeadline(t.deadline)}</span>
+              <span className={`text-sm font-medium ${deadlineClass(t.deadline, t.status)}`}>{formatDeadline(t.deadline)}</span>
             </div>
           ))}
           {upcomingDeadlines.length === 0 && (

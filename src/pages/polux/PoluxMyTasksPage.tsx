@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { poluxApi } from '../../api/poluxClient'
-import type { PoluxProject, PoluxTask, PoluxTeam, PoluxUserRef } from '../../types/polux'
-import { TaskTable } from '../../components/polux/TaskTable'
+import type { PoluxTask, PoluxTeam, PoluxUserRef } from '../../types/polux'
+import { TaskListView } from '../../components/polux/TaskListView'
 import { TaskModal } from '../../components/polux/TaskModal'
 import { useAuth } from '../../contexts/AuthContext'
 
@@ -9,20 +9,18 @@ export default function PoluxMyTasksPage() {
   const { sdpUser } = useAuth()
   const [tasks, setTasks] = useState<PoluxTask[]>([])
   const [users, setUsers] = useState<PoluxUserRef[]>([])
-  const [projects, setProjects] = useState<PoluxProject[]>([])
   const [teams, setTeams] = useState<PoluxTeam[]>([])
   const [selectedTask, setSelectedTask] = useState<PoluxTask | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([poluxApi.getTasks(), poluxApi.getUsers(), poluxApi.getProjects(), poluxApi.getTeams()])
-      .then(([t, u, p, tm]) => { setTasks(t); setUsers(u); setProjects(p); setTeams(tm) })
+    Promise.all([poluxApi.getTasks(), poluxApi.getUsers(), poluxApi.getTeams()])
+      .then(([t, u, tm]) => { setTasks(t); setUsers(u); setTeams(tm) })
       .finally(() => setLoading(false))
   }, [])
 
   const currentUser = useMemo(() => users.find((u) => u.email === sdpUser?.email) ?? null, [users, sdpUser])
-  const myTasks = useMemo(() => currentUser ? tasks.filter((t) => t.assigned_to === currentUser.id) : [], [tasks, currentUser])
-  const selectedTaskTeamMemberIds = useMemo(() => teams.find((t) => t.id === selectedTask?.team_id)?.member_ids ?? [], [teams, selectedTask])
+  const myTasks = useMemo(() => currentUser ? tasks.filter((t) => t.assigned_to_ids.includes(currentUser.id)) : [], [tasks, currentUser])
 
   function handleUpdated(updated: PoluxTask) {
     setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)))
@@ -44,9 +42,9 @@ export default function PoluxMyTasksPage() {
         </p>
       </div>
 
-      <TaskTable tasks={myTasks} users={users} projects={projects} teams={teams} showProjectColumn showTeamColumn onOpenTask={setSelectedTask} />
+      <TaskListView tasks={myTasks} users={users} teams={teams} showProjectColumn showTeamColumn onOpenTask={setSelectedTask} />
 
-      <TaskModal task={selectedTask} users={users} teamMemberIds={selectedTaskTeamMemberIds} onClose={() => setSelectedTask(null)} onUpdated={handleUpdated} onDeleted={handleDeleted} />
+      <TaskModal task={selectedTask} users={users} onClose={() => setSelectedTask(null)} onUpdated={handleUpdated} onDeleted={handleDeleted} />
     </div>
   )
 }

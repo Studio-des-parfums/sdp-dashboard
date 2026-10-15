@@ -4,43 +4,46 @@ import { Input } from '../ui/lylo/Input'
 import { Label } from '../ui/lylo/Label'
 import { Modal } from '../ui/lylo/Modal'
 import { poluxApi } from '../../api/poluxClient'
-import type { PoluxProject, PoluxTask, PoluxUserRef } from '../../types/polux'
+import type { PoluxTask, PoluxUserRef } from '../../types/polux'
 import { PRIORITY_LABEL } from './priority'
+import { AssigneePicker } from './AssigneePicker'
+import { ColorPicker } from './ColorPicker'
 
 interface CreateTaskModalProps {
   open: boolean
   teamId: number
-  projects: PoluxProject[]
   users: PoluxUserRef[]
   onClose: () => void
   onCreated: (task: PoluxTask) => void
 }
 
-function emptyForm(projectId: number) {
-  return { title: '', description: '', project_id: projectId, assigned_to: '' as number | '', priority: 'moyenne' as PoluxTask['priority'], deadline: '' }
+function emptyForm() {
+  return { title: '', description: '', projectName: '', assignedToIds: [] as number[], priority: 'moyenne' as PoluxTask['priority'], color: null as string | null, startDate: '', deadline: '' }
 }
 
-export function CreateTaskModal({ open, teamId, projects, users, onClose, onCreated }: CreateTaskModalProps) {
-  const [form, setForm] = useState(emptyForm(projects[0]?.id ?? 0))
+export function CreateTaskModal({ open, teamId, users, onClose, onCreated }: CreateTaskModalProps) {
+  const [form, setForm] = useState(emptyForm())
   const [isBusy, setIsBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function submit() {
-    if (!form.title.trim() || !form.project_id) return
+    if (!form.title.trim()) return
     setIsBusy(true)
     setError(null)
     try {
       const task = await poluxApi.createTask({
-        project_id: form.project_id,
         team_id: teamId,
         title: form.title.trim(),
         description: form.description.trim(),
-        assigned_to: form.assigned_to === '' ? null : form.assigned_to,
+        project_name: form.projectName.trim() || null,
+        assigned_to_ids: form.assignedToIds,
         priority: form.priority,
+        color: form.color,
+        start_date: form.startDate ? new Date(form.startDate).toISOString() : null,
         deadline: form.deadline ? new Date(form.deadline).toISOString() : null,
       })
       onCreated(task)
-      setForm(emptyForm(projects[0]?.id ?? 0))
+      setForm(emptyForm())
       onClose()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur inconnue')
@@ -77,25 +80,28 @@ export function CreateTaskModal({ open, teamId, projects, users, onClose, onCrea
             className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
           />
         </div>
+        <div className="space-y-2">
+          <Label>Projet</Label>
+          <Input value={form.projectName} onChange={(e) => setForm((s) => ({ ...s, projectName: e.target.value }))} placeholder="Nom du projet (optionnel)" />
+        </div>
+        <div className="space-y-2">
+          <Label>Couleur</Label>
+          <ColorPicker value={form.color} onChange={(color) => setForm((s) => ({ ...s, color }))} />
+        </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>Projet</Label>
-            <select value={form.project_id} onChange={(e) => setForm((s) => ({ ...s, project_id: Number(e.target.value) }))} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900">
-              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          </div>
-          <div className="space-y-2">
             <Label>Assigné à</Label>
-            <select value={form.assigned_to} onChange={(e) => setForm((s) => ({ ...s, assigned_to: e.target.value ? Number(e.target.value) : '' }))} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900">
-              <option value="">Non assignée</option>
-              {users.map((u) => <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
-            </select>
+            <AssigneePicker users={users} selectedIds={form.assignedToIds} onChange={(ids) => setForm((s) => ({ ...s, assignedToIds: ids }))} />
           </div>
           <div className="space-y-2">
             <Label>Priorité</Label>
             <select value={form.priority} onChange={(e) => setForm((s) => ({ ...s, priority: e.target.value as PoluxTask['priority'] }))} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900">
               {Object.entries(PRIORITY_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
+          </div>
+          <div className="space-y-2">
+            <Label>Date de début</Label>
+            <Input type="date" value={form.startDate} onChange={(e) => setForm((s) => ({ ...s, startDate: e.target.value }))} />
           </div>
           <div className="space-y-2">
             <Label>Échéance</Label>

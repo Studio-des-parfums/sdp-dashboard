@@ -19,6 +19,7 @@ import LyloRenderer from '../components/lylo/LyloRenderer'
 import NonoRenderer from '../components/nono/NonoRenderer'
 import PoluxRenderer from '../components/polux/PoluxRenderer'
 import { CreateTeamModal } from '../components/polux/CreateTeamModal'
+import { poluxApi } from '../api/poluxClient'
 import HomePage from '../components/home/HomePage'
 import { mockUser, mockNotifications } from '../data/mockData'
 import { ticketsClient } from '../api/ticketsClient'
@@ -76,8 +77,19 @@ export function DashboardView() {
     setSelectedFormulaId(null)
     setSelectedGroupIds([])
     setSelectedOrderId(null)
+    const normalized = slug === 'marketplace' ? 'aglae' : slug === 'analytics' ? 'lylo' : slug
     api.getDashboard(slug)
-      .then((d) => {
+      .then(async (d) => {
+        if (normalized === 'polux') {
+          const teams = await poluxApi.getTeams().catch(() => [])
+          d = {
+            ...d,
+            sections: [
+              ...d.sections,
+              ...teams.map((team) => ({ id: `team-${team.slug}`, name: team.name, icon: 'Users', metricIds: [], chartIds: [] })),
+            ],
+          }
+        }
         setDashboard(d)
         setActiveSection(isHome ? 'overview' : d.sections[0]?.id || 'overview')
       })
@@ -126,7 +138,7 @@ export function DashboardView() {
         onLogout={() => { logout(); navigate('/login') }}
         badges={isAdmin && openTicketsCount > 0 ? { tickets: openTicketsCount } : undefined}
         groupedSection={isPolux ? {
-          label: 'Équipes',
+          label: 'Tâches Équipes',
           sectionIds: (dashboard?.sections ?? []).filter((s) => s.id.startsWith('team-')).map((s) => s.id),
           addLabel: 'Ajouter une équipe',
           onAddClick: () => setCreateTeamOpen(true),
@@ -250,7 +262,13 @@ export function DashboardView() {
             ) : isLyloSections ? (
               <LyloRenderer section={activeSection} />
             ) : isPolux ? (
-              <PoluxRenderer section={activeSection} />
+              <PoluxRenderer
+                section={activeSection}
+                onTeamDeleted={(teamSlug) => {
+                  setDashboard((prev) => prev && { ...prev, sections: prev.sections.filter((s) => s.id !== `team-${teamSlug}`) })
+                  setActiveSection('accueil')
+                }}
+              />
             ) : isNono ? (
               <NonoRenderer section={activeSection} />
             ) : isNinnoAdminSection ? (

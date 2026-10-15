@@ -16,15 +16,6 @@ export interface PoluxTeam {
   member_ids: number[]
 }
 
-export interface PoluxProject {
-  id: number
-  team_id: number | null
-  name: string
-  description: string
-  color: string
-  archived: boolean
-}
-
 export interface PoluxReminder {
   id: number
   task_id: number
@@ -55,14 +46,16 @@ export interface PoluxComment {
 
 export interface PoluxTask {
   id: number
-  project_id: number
+  project_name: string | null
   team_id: number
   title: string
   description: string
-  assigned_to: number | null
+  assigned_to_ids: number[]
   created_by: number
   priority: PoluxTaskPriority
+  color: string | null
   status: PoluxTaskStatus
+  start_date: string | null
   deadline: string | null
   created_at: string
   reminders: PoluxReminder[]

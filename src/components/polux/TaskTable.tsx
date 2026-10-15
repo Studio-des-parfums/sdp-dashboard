@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
-import type { PoluxProject, PoluxTask, PoluxTeam, PoluxUserRef } from '../../types/polux'
-import { formatDeadline, isOverdue, PRIORITY_CLASS, PRIORITY_LABEL, STATUS_CLASS, STATUS_LABEL } from './priority'
+import type { PoluxTask, PoluxTeam, PoluxUserRef } from '../../types/polux'
+import { deadlineClass, formatDeadline, PRIORITY_CLASS, PRIORITY_LABEL, STATUS_CLASS, STATUS_LABEL } from './priority'
 
 type SortKey = 'deadline' | 'priority' | 'status' | 'title'
 
@@ -9,25 +9,37 @@ const PRIORITY_ORDER: Record<string, number> = { urgente: 0, haute: 1, moyenne: 
 interface TaskTableProps {
   tasks: PoluxTask[]
   users: PoluxUserRef[]
-  projects?: PoluxProject[]
   teams?: PoluxTeam[]
   showProjectColumn?: boolean
   showTeamColumn?: boolean
   onOpenTask: (task: PoluxTask) => void
 }
 
-export function TaskTable({ tasks, users, projects = [], teams = [], showProjectColumn, showTeamColumn, onOpenTask }: TaskTableProps) {
+export function TaskTable({ tasks, users, teams = [], showProjectColumn, showTeamColumn, onOpenTask }: TaskTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>('deadline')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [priorityFilter, setPriorityFilter] = useState<string>('all')
+  const [deadlineFrom, setDeadlineFrom] = useState('')
+  const [deadlineTo, setDeadlineTo] = useState('')
 
   const userById = useMemo(() => new Map(users.map((u) => [u.id, u])), [users])
-  const projectById = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects])
   const teamById = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams])
 
   const filtered = useMemo(() => {
-    return tasks.filter((t) => (statusFilter === 'all' || t.status === statusFilter) && (priorityFilter === 'all' || t.priority === priorityFilter))
-  }, [tasks, statusFilter, priorityFilter])
+    const from = deadlineFrom ? new Date(deadlineFrom).getTime() : null
+    const to = deadlineTo ? new Date(deadlineTo).getTime() + 86_400_000 : null
+    return tasks.filter((t) => {
+      if (statusFilter !== 'all' && t.status !== statusFilter) return false
+      if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false
+      if (from || to) {
+        if (!t.deadline) return false
+        const time = new Date(t.deadline).getTime()
+        if (from && time < from) return false
+        if (to && time >= to) return false
+      }
+      return true
+    })
+  }, [tasks, statusFilter, priorityFilter, deadlineFrom, deadlineTo])
 
   const sorted = useMemo(() => {
     const copy = [...filtered]
@@ -63,6 +75,16 @@ export function TaskTable({ tasks, users, projects = [], teams = [], showProject
             <option value="status">Trier par statut</option>
             <option value="title">Trier par titre</option>
           </select>
+          <div className="flex items-center gap-1.5">
+            <input type="date" value={deadlineFrom} onChange={(e) => setDeadlineFrom(e.target.value)} className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-700" title="Échéance à partir du" />
+            <span className="text-xs text-gray-500">→</span>
+            <input type="date" value={deadlineTo} onChange={(e) => setDeadlineTo(e.target.value)} className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-700" title="Échéance jusqu'au" />
+            {(deadlineFrom || deadlineTo) && (
+              <button type="button" onClick={() => { setDeadlineFrom(''); setDeadlineTo('') }} className="text-xs text-gray-500 hover:text-gray-900">
+                Réinitialiser
+              </button>
+            )}
+          </div>
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -75,32 +97,38 @@ export function TaskTable({ tasks, users, projects = [], teams = [], showProject
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Assigné à</th>
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Priorité</th>
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Statut</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Début</th>
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Échéance</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {sorted.map((task) => {
-              const assignee = task.assigned_to ? userById.get(task.assigned_to) : null
-              const overdue = isOverdue(task.deadline, task.status)
+              const assignees = task.assigned_to_ids.map((id) => userById.get(id)).filter((u): u is PoluxUserRef => !!u)
               return (
                 <tr key={task.id} className="cursor-pointer transition-colors hover:bg-gray-100/60" onClick={() => onOpenTask(task)}>
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{task.title}</td>
-                  {showProjectColumn && <td className="px-6 py-4 text-sm text-gray-600">{projectById.get(task.project_id)?.name ?? '—'}</td>}
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                    <span className="flex items-center gap-2">
+                      {task.color && <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: task.color }} />}
+                      {task.title}
+                    </span>
+                  </td>
+                  {showProjectColumn && <td className="px-6 py-4 text-sm text-gray-600">{task.project_name ?? '—'}</td>}
                   {showTeamColumn && <td className="px-6 py-4 text-sm text-gray-600">{teamById.get(task.team_id)?.name ?? '—'}</td>}
-                  <td className="px-6 py-4 text-sm text-gray-600">{assignee ? `${assignee.first_name} ${assignee.last_name}` : 'Non assignée'}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600">{assignees.length > 0 ? assignees.map((u) => `${u.first_name} ${u.last_name}`).join(', ') : 'Non assignée'}</td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex items-center rounded-full px-2 py-1 text-[11px] font-medium ${PRIORITY_CLASS[task.priority]}`}>{PRIORITY_LABEL[task.priority]}</span>
                   </td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex items-center rounded-full px-2 py-1 text-[11px] font-medium ${STATUS_CLASS[task.status]}`}>{STATUS_LABEL[task.status]}</span>
                   </td>
-                  <td className={`px-6 py-4 text-sm ${overdue ? 'font-semibold text-red-700' : 'text-gray-600'}`}>{formatDeadline(task.deadline)}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600">{formatDeadline(task.start_date)}</td>
+                  <td className={`px-6 py-4 text-sm font-medium ${deadlineClass(task.deadline, task.status)}`}>{formatDeadline(task.deadline)}</td>
                 </tr>
               )
             })}
             {sorted.length === 0 && (
               <tr>
-                <td className="px-6 py-10 text-center text-sm text-gray-600" colSpan={showProjectColumn && showTeamColumn ? 7 : showProjectColumn || showTeamColumn ? 6 : 5}>
+                <td className="px-6 py-10 text-center text-sm text-gray-600" colSpan={showProjectColumn && showTeamColumn ? 8 : showProjectColumn || showTeamColumn ? 7 : 6}>
                   Aucune tâche trouvée.
                 </td>
               </tr>

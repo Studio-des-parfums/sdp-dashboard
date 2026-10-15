@@ -5,20 +5,21 @@ import { Label } from '../ui/lylo/Label'
 import { Modal } from '../ui/lylo/Modal'
 import { poluxApi, type TaskPatch } from '../../api/poluxClient'
 import type { PoluxTask, PoluxUserRef } from '../../types/polux'
-import { PRIORITY_LABEL, STATUS_LABEL } from './priority'
+import { PRIORITY_LABEL, STATUS_LABEL, toDateInputValue } from './priority'
 import { MentionInput } from './MentionInput'
+import { AssigneePicker } from './AssigneePicker'
+import { ColorPicker } from './ColorPicker'
+import { CommentBody } from './CommentBody'
 
 interface TaskModalProps {
   task: PoluxTask | null
   users: PoluxUserRef[]
-  /** Membres de l'équipe propriétaire de la tâche, pour "Notifier toute l'équipe". */
-  teamMemberIds?: number[]
   onClose: () => void
   onUpdated: (task: PoluxTask) => void
   onDeleted: (taskId: number) => void
 }
 
-export function TaskModal({ task, users, teamMemberIds = [], onClose, onUpdated, onDeleted }: TaskModalProps) {
+export function TaskModal({ task, users, onClose, onUpdated, onDeleted }: TaskModalProps) {
   const [form, setForm] = useState<TaskPatch>({})
   const [commentBody, setCommentBody] = useState('')
   const [mentionedUserIds, setMentionedUserIds] = useState<number[]>([])
@@ -31,10 +32,13 @@ export function TaskModal({ task, users, teamMemberIds = [], onClose, onUpdated,
     setForm({
       title: task.title,
       description: task.description,
-      assigned_to: task.assigned_to,
+      project_name: task.project_name,
+      assigned_to_ids: task.assigned_to_ids,
       priority: task.priority,
+      color: task.color,
       status: task.status,
-      deadline: task.deadline ? task.deadline.slice(0, 10) : null,
+      start_date: task.start_date ? toDateInputValue(task.start_date) : null,
+      deadline: task.deadline ? toDateInputValue(task.deadline) : null,
     })
     setCommentBody('')
     setMentionedUserIds([])
@@ -87,36 +91,37 @@ export function TaskModal({ task, users, teamMemberIds = [], onClose, onUpdated,
     }
   }
 
-  async function handleNotifyTeam() {
-    const body = commentBody.trim()
-    setIsBusy(true)
-    try {
-      const comment = await poluxApi.addComment(task!.id, body || '(Attire l\'attention de l\'équipe sur cette tâche)', [])
-      await poluxApi.notifyTeam(task!.id, teamMemberIds, comment.id)
-      const refreshedTask: PoluxTask = { ...task!, comments: [...task!.comments, comment] }
-      onUpdated(refreshedTask)
-      setCommentBody('')
-      setMentionedUserIds([])
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur inconnue')
-    } finally {
-      setIsBusy(false)
-    }
+  function handleAssignedMentionAdded() {
+    setMentionedUserIds((prev) => Array.from(new Set([...prev, ...task!.assigned_to_ids])))
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const files = e.target.files
+    if (!files || files.length === 0) return
     setIsBusy(true)
     setError(null)
     try {
-      const updated = await poluxApi.uploadAttachment(task!.id, file)
+      const updated = await poluxApi.uploadAttachments(task!.id, Array.from(files))
       onUpdated(updated)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur inconnue')
     } finally {
       setIsBusy(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  async function handleDeleteAttachment(attachmentId: number) {
+    setIsBusy(true)
+    setError(null)
+    try {
+      await poluxApi.deleteAttachment(attachmentId)
+      const refreshedTask: PoluxTask = { ...task!, attachments: task!.attachments.filter((a) => a.id !== attachmentId) }
+      onUpdated(refreshedTask)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur inconnue')
+    } finally {
+      setIsBusy(false)
     }
   }
 
@@ -164,17 +169,29 @@ export function TaskModal({ task, users, teamMemberIds = [], onClose, onUpdated,
           />
         </div>
 
+        <div className="space-y-2">
+          <Label>Projet</Label>
+          <Input
+            value={form.project_name ?? ''}
+            onChange={(e) => setForm((s) => ({ ...s, project_name: e.target.value }))}
+            onBlur={() => form.project_name !== task.project_name && savePatch({ project_name: form.project_name || null })}
+            placeholder="Nom du projet (optionnel)"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Couleur</Label>
+          <ColorPicker value={form.color ?? null} onChange={(color) => { setForm((s) => ({ ...s, color })); savePatch({ color }) }} />
+        </div>
+
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Assigné à</Label>
-            <select
-              value={form.assigned_to ?? ''}
-              onChange={(e) => { const v = e.target.value ? Number(e.target.value) : null; setForm((s) => ({ ...s, assigned_to: v })); savePatch({ assigned_to: v }) }}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
-            >
-              <option value="">Non assignée</option>
-              {users.map((u) => <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
-            </select>
+            <AssigneePicker
+              users={users}
+              selectedIds={form.assigned_to_ids ?? []}
+              onChange={(ids) => { setForm((s) => ({ ...s, assigned_to_ids: ids })); savePatch({ assigned_to_ids: ids }) }}
+            />
           </div>
 
           <div className="space-y-2">
@@ -200,6 +217,16 @@ export function TaskModal({ task, users, teamMemberIds = [], onClose, onUpdated,
           </div>
 
           <div className="space-y-2">
+            <Label>Date de début</Label>
+            <Input
+              type="date"
+              value={form.start_date ?? ''}
+              onChange={(e) => setForm((s) => ({ ...s, start_date: e.target.value || null }))}
+              onBlur={() => savePatch({ start_date: form.start_date ? new Date(form.start_date).toISOString() : null })}
+            />
+          </div>
+
+          <div className="space-y-2">
             <Label>Échéance</Label>
             <Input
               type="date"
@@ -214,13 +241,23 @@ export function TaskModal({ task, users, teamMemberIds = [], onClose, onUpdated,
           <Label>Pièces jointes</Label>
           <div className="space-y-1">
             {task.attachments.map((a) => (
-              <a key={a.id} href={a.url} target="_blank" rel="noreferrer" className="block text-sm text-indigo-600 hover:text-indigo-500">
-                {a.filename}
-              </a>
+              <div key={a.id} className="flex items-center justify-between">
+                <a href={a.url} target="_blank" rel="noreferrer" className="text-sm text-indigo-600 hover:text-indigo-500">
+                  {a.filename}
+                </a>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteAttachment(a.id)}
+                  disabled={isBusy}
+                  className="text-xs text-red-700 hover:text-red-600 disabled:opacity-50"
+                >
+                  Supprimer
+                </button>
+              </div>
             ))}
             {task.attachments.length === 0 && <p className="text-sm text-gray-600">Aucune pièce jointe.</p>}
           </div>
-          <input ref={fileInputRef} type="file" onChange={handleFileChange} className="text-xs text-gray-600" disabled={isBusy} />
+          <input ref={fileInputRef} type="file" multiple onChange={handleFileChange} className="text-xs text-gray-600" disabled={isBusy} />
         </div>
 
         <div className="space-y-2">
@@ -229,12 +266,12 @@ export function TaskModal({ task, users, teamMemberIds = [], onClose, onUpdated,
             {task.comments.map((c) => (
               <div key={c.id} className="rounded-lg border border-gray-200 bg-white px-3 py-2">
                 <p className="text-xs font-medium text-gray-900">{userLabel(c.user_id) ?? 'Utilisateur'}</p>
-                <p className="text-sm text-gray-700">{c.body}</p>
+                <p className="text-sm text-gray-700"><CommentBody body={c.body} users={users} /></p>
               </div>
             ))}
             {task.comments.length === 0 && <p className="text-sm text-gray-600">Aucun commentaire.</p>}
           </div>
-          <p className="text-xs text-gray-500">Tape @ pour mentionner et notifier une personne précise.</p>
+          <p className="text-xs text-gray-500">Tape @ pour mentionner une personne, ou @Personnes assignées pour notifier tous les assignés.</p>
           <div className="flex gap-2">
             <MentionInput
               value={commentBody}
@@ -242,19 +279,10 @@ export function TaskModal({ task, users, teamMemberIds = [], onClose, onUpdated,
               users={users}
               placeholder="Ajouter un commentaire..."
               onMentionAdded={(userId) => setMentionedUserIds((prev) => (prev.includes(userId) ? prev : [...prev, userId]))}
+              onAssignedMentionAdded={handleAssignedMentionAdded}
             />
             <Button variant="primary" type="button" onClick={handleAddComment} disabled={isBusy || !commentBody.trim()}>Envoyer</Button>
           </div>
-          {teamMemberIds.length > 0 && (
-            <button
-              type="button"
-              onClick={handleNotifyTeam}
-              disabled={isBusy}
-              className="text-xs text-indigo-600 hover:text-indigo-500 disabled:opacity-50"
-            >
-              Notifier toute l'équipe de ce commentaire
-            </button>
-          )}
         </div>
       </div>
     </Modal>

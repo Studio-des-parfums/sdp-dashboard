@@ -1,7 +1,6 @@
-import type { PoluxComment, PoluxProject, PoluxTask, PoluxTeam, PoluxUserRef } from '../types/polux'
+import type { PoluxComment, PoluxTask, PoluxTeam, PoluxUserRef } from '../types/polux'
 import {
   mockPoluxComments,
-  mockPoluxProjects,
   mockPoluxTasks,
   mockPoluxTeams,
   mockPoluxUsers,
@@ -65,19 +64,24 @@ let nextNotificationId = 1
 export interface TaskPatch {
   title?: string
   description?: string
-  assigned_to?: number | null
+  project_name?: string | null
+  assigned_to_ids?: number[]
   priority?: PoluxTask['priority']
+  color?: string | null
   status?: PoluxTask['status']
+  start_date?: string | null
   deadline?: string | null
 }
 
 export interface TaskInput {
-  project_id: number
+  project_name?: string | null
   team_id: number
   title: string
   description: string
-  assigned_to: number | null
+  assigned_to_ids: number[]
   priority: PoluxTask['priority']
+  color: string | null
+  start_date: string | null
   deadline: string | null
 }
 
@@ -90,21 +94,51 @@ export const poluxApi = {
   async createTeam(input: { name: string; color: string }): Promise<PoluxTeam> {
     if (USE_MOCK) {
       const slug = input.name.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-      const team: PoluxTeam = { id: nextTeamId++, slug, name: input.name.trim(), color: input.color, member_ids: [] }
+      const creatorEmail = currentUserEmail()
+      const creator = mockPoluxUsers.find((u) => u.email === creatorEmail) ?? mockPoluxUsers[0]
+      const team: PoluxTeam = { id: nextTeamId++, slug, name: input.name.trim(), color: input.color, member_ids: [creator.id] }
       teams = [...teams, team]
       return delay(team)
     }
     return request('/teams', { method: 'POST', body: JSON.stringify(input) })
   },
 
+  async addTeamMember(teamId: number, userId: number): Promise<void> {
+    if (USE_MOCK) {
+      const index = teams.findIndex((t) => t.id === teamId)
+      if (index === -1) throw new Error('Équipe introuvable')
+      if (!teams[index].member_ids.includes(userId)) {
+        const updated = { ...teams[index], member_ids: [...teams[index].member_ids, userId] }
+        teams = [...teams.slice(0, index), updated, ...teams.slice(index + 1)]
+      }
+      return delay(undefined)
+    }
+    return request(`/teams/${teamId}/members`, { method: 'POST', body: JSON.stringify({ user_id: userId }) })
+  },
+
+  async removeTeamMember(teamId: number, userId: number): Promise<void> {
+    if (USE_MOCK) {
+      const index = teams.findIndex((t) => t.id === teamId)
+      if (index === -1) return
+      const updated = { ...teams[index], member_ids: teams[index].member_ids.filter((id) => id !== userId) }
+      teams = [...teams.slice(0, index), updated, ...teams.slice(index + 1)]
+      return delay(undefined)
+    }
+    return request(`/teams/${teamId}/members/${userId}`, { method: 'DELETE' })
+  },
+
+  async deleteTeam(teamId: number): Promise<void> {
+    if (USE_MOCK) {
+      teams = teams.filter((t) => t.id !== teamId)
+      tasks = tasks.filter((t) => t.team_id !== teamId)
+      return delay(undefined)
+    }
+    return request(`/teams/${teamId}`, { method: 'DELETE' })
+  },
+
   async getUsers(): Promise<PoluxUserRef[]> {
     if (USE_MOCK) return delay(mockPoluxUsers)
     return request('/users')
-  },
-
-  async getProjects(): Promise<PoluxProject[]> {
-    if (USE_MOCK) return delay(mockPoluxProjects)
-    return request('/projects')
   },
 
   async getTasks(): Promise<PoluxTask[]> {
@@ -116,14 +150,16 @@ export const poluxApi = {
     if (USE_MOCK) {
       const task: PoluxTask = {
         id: nextTaskId++,
-        project_id: input.project_id,
+        project_name: input.project_name ?? null,
         team_id: input.team_id,
         title: input.title,
         description: input.description,
-        assigned_to: input.assigned_to,
+        assigned_to_ids: input.assigned_to_ids,
         created_by: mockPoluxUsers[0].id,
         priority: input.priority,
+        color: input.color,
         status: 'a_faire',
+        start_date: input.start_date,
         deadline: input.deadline,
         created_at: new Date().toISOString(),
         reminders: [],
@@ -190,38 +226,17 @@ export const poluxApi = {
     return request(`/tasks/${taskId}/comments`, { method: 'POST', body: JSON.stringify({ body, mentioned_user_ids: mentionedUserIds }) })
   },
 
-  async notifyTeam(taskId: number, teamMemberIds: number[], commentId: number): Promise<void> {
-    if (USE_MOCK) {
-      const authorId = mockPoluxUsers[0].id
-      teamMemberIds
-        .filter((userId) => userId !== authorId)
-        .forEach((userId) => {
-          mentionNotifications = [...mentionNotifications, {
-            id: nextNotificationId++,
-            task_id: taskId,
-            comment_id: commentId,
-            mentioned_user_id: userId,
-            from_user_id: authorId,
-            is_read: false,
-            created_at: new Date().toISOString(),
-          }]
-        })
-      return delay(undefined)
-    }
-    return request(`/tasks/${taskId}/notify-team`, { method: 'POST', body: JSON.stringify({ team_member_ids: teamMemberIds, comment_id: commentId }) })
-  },
-
   async getMentionNotifications(userId: number): Promise<PoluxMentionNotification[]> {
     if (USE_MOCK) return delay(mentionNotifications.filter((n) => n.mentioned_user_id === userId))
     return request('/notifications')
   },
 
-  async uploadAttachment(taskId: number, file: File): Promise<PoluxTask> {
+  async uploadAttachments(taskId: number, files: File[]): Promise<PoluxTask> {
     if (USE_MOCK) {
       const index = tasks.findIndex((t) => t.id === taskId)
       if (index === -1) throw new Error('Tâche introuvable')
-      const attachment = {
-        id: Date.now(),
+      const newAttachments = files.map((file, i) => ({
+        id: Date.now() + i,
         task_id: taskId,
         filename: file.name,
         url: URL.createObjectURL(file),
@@ -229,17 +244,25 @@ export const poluxApi = {
         size: file.size,
         uploaded_by: mockPoluxUsers[0].id,
         created_at: new Date().toISOString(),
-      }
-      const updated = { ...tasks[index], attachments: [...tasks[index].attachments, attachment] }
+      }))
+      const updated = { ...tasks[index], attachments: [...tasks[index].attachments, ...newAttachments] }
       tasks = [...tasks.slice(0, index), updated, ...tasks.slice(index + 1)]
       return delay(updated)
     }
     const formData = new FormData()
-    formData.append('file', file)
+    files.forEach((file) => formData.append('files', file))
     await request(`/tasks/${taskId}/attachments`, { method: 'POST', body: formData })
     const freshTasks = await poluxApi.getTasks()
     const updated = freshTasks.find((t) => t.id === taskId)
     if (!updated) throw new Error('Tâche introuvable après upload')
     return updated
+  },
+
+  async deleteAttachment(attachmentId: number): Promise<void> {
+    if (USE_MOCK) {
+      tasks = tasks.map((t) => ({ ...t, attachments: t.attachments.filter((a) => a.id !== attachmentId) }))
+      return delay(undefined)
+    }
+    return request(`/attachments/${attachmentId}`, { method: 'DELETE' })
   },
 }

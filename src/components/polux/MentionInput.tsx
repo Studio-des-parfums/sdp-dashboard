@@ -1,25 +1,33 @@
 import { useMemo, useRef, useState } from 'react'
 import type { PoluxUserRef } from '../../types/polux'
 
+const ASSIGNED_LABEL = 'Personnes assignées'
+
 interface MentionInputProps {
   value: string
   onChange: (value: string) => void
   users: PoluxUserRef[]
   placeholder?: string
   onMentionAdded: (userId: number) => void
+  /** Sélectionné quand on choisit la suggestion spéciale "@Personnes assignées". */
+  onAssignedMentionAdded?: () => void
 }
 
 // Détecte un "@" suivi de texte sans espace juste avant le curseur, pour proposer
 // l'autocomplete façon Notion/Slack — insère "@Prénom Nom " au clic sur une suggestion.
-export function MentionInput({ value, onChange, users, placeholder, onMentionAdded }: MentionInputProps) {
+// Une suggestion spéciale "@Personnes assignées" notifie par email tout le monde assigné
+// à la tâche en une seule mention, sans avoir à les citer individuellement.
+export function MentionInput({ value, onChange, users, placeholder, onMentionAdded, onAssignedMentionAdded }: MentionInputProps) {
   const [query, setQuery] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
 
-  const suggestions = useMemo(() => {
+  const userSuggestions = useMemo(() => {
     if (query === null) return []
     const q = query.toLowerCase()
     return users.filter((u) => `${u.first_name} ${u.last_name}`.toLowerCase().includes(q)).slice(0, 5)
   }, [query, users])
+
+  const showAssignedSuggestion = query !== null && onAssignedMentionAdded && ASSIGNED_LABEL.toLowerCase().includes(query.toLowerCase())
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const next = e.target.value
@@ -30,17 +38,26 @@ export function MentionInput({ value, onChange, users, placeholder, onMentionAdd
     setQuery(match ? match[1] : null)
   }
 
-  function selectUser(user: PoluxUserRef) {
+  function insertMention(text: string) {
     const cursor = inputRef.current?.selectionStart ?? value.length
     const upToCursor = value.slice(0, cursor)
     const match = /@([^\s@]*)$/.exec(upToCursor)
     if (!match) return
-    const mentionText = `@${user.first_name} ${user.last_name} `
+    const mentionText = `@${text} `
     const next = value.slice(0, match.index) + mentionText + value.slice(cursor)
     onChange(next)
-    onMentionAdded(user.id)
     setQuery(null)
     requestAnimationFrame(() => inputRef.current?.focus())
+  }
+
+  function selectUser(user: PoluxUserRef) {
+    insertMention(`${user.first_name} ${user.last_name}`)
+    onMentionAdded(user.id)
+  }
+
+  function selectAssigned() {
+    insertMention(ASSIGNED_LABEL)
+    onAssignedMentionAdded?.()
   }
 
   return (
@@ -52,9 +69,19 @@ export function MentionInput({ value, onChange, users, placeholder, onMentionAdd
         placeholder={placeholder}
         className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
       />
-      {query !== null && suggestions.length > 0 && (
-        <div className="absolute bottom-full left-0 mb-1 w-56 rounded-lg border border-gray-200 bg-white shadow-lg z-10 py-1">
-          {suggestions.map((u) => (
+      {query !== null && (userSuggestions.length > 0 || showAssignedSuggestion) && (
+        <div className="absolute bottom-full left-0 mb-1 w-60 rounded-lg border border-gray-200 bg-white shadow-lg z-10 py-1">
+          {showAssignedSuggestion && (
+            <button
+              type="button"
+              onClick={selectAssigned}
+              className="w-full px-3 py-2 text-left text-sm font-medium text-indigo-600 hover:bg-gray-100"
+            >
+              {ASSIGNED_LABEL}
+              <span className="ml-1 text-xs font-normal text-gray-500">(notifie tous les assignés)</span>
+            </button>
+          )}
+          {userSuggestions.map((u) => (
             <button
               key={u.id}
               type="button"
