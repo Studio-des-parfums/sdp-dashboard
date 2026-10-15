@@ -1,4 +1,5 @@
-import type { Dashboard, Notification, Project } from '../types'
+import type { Dashboard, DashboardSection, Notification, Project } from '../types'
+import { mockPoluxTeams } from './mockPoluxData'
 
 export const mockUser = {
   firstName: 'Thomas',
@@ -17,7 +18,18 @@ export const mockProjects: Project[] = [
   { id: 4, name: 'Lylo', slug: 'lylo', description: 'Back-office Lylo', color: '#996f56', status: 'active', created_at: '2024-01-01T00:00:00Z' },
   { id: 5, name: 'Admin Portal', slug: 'admin-portal', description: "Portail d'administration interne", color: '#8b5cf6', status: 'maintenance', created_at: '2024-01-01T00:00:00Z' },
   { id: 6, name: 'Nono', slug: 'nono', description: 'Backoffice du robot magasin', color: '#0ea5e9', status: 'active', created_at: '2024-01-01T00:00:00Z' },
+  { id: 7, name: 'Polux', slug: 'polux', description: 'Gestion de projets et de tâches', color: '#6366f1', status: 'active', created_at: '2024-01-01T00:00:00Z' },
 ]
+
+// Une section par équipe Polux, en plus de Accueil / Mes tâches — générée depuis mockPoluxTeams
+// pour rester synchronisée tant que polux-back n'expose pas encore cette liste dynamiquement.
+const POLUX_TEAM_SECTIONS: DashboardSection[] = mockPoluxTeams.map((team) => ({
+  id: `team-${team.slug}`,
+  name: team.name,
+  icon: 'Users',
+  metricIds: [],
+  chartIds: [],
+}))
 
 export const mockDashboards: Record<string, Dashboard> = {
   'sdp-core': {
@@ -113,5 +125,15 @@ export const mockDashboards: Record<string, Dashboard> = {
         { label: 'Support', value: 20 }, { label: 'Autre', value: 15 },
       ]},
     ],
+  },
+  'polux': {
+    id: 7, name: 'Polux', slug: 'polux', description: 'Gestion de projets et de tâches', color: '#6366f1', status: 'active', created_at: '2024-01-01T00:00:00Z',
+    sections: [
+      { id: 'accueil', name: 'Accueil', icon: 'LayoutDashboard', metricIds: [], chartIds: [] },
+      { id: 'mes-taches', name: 'Mes tâches', icon: 'StickyNote', metricIds: [], chartIds: [] },
+      ...POLUX_TEAM_SECTIONS,
+    ],
+    metrics: [],
+    charts: [],
   },
 }

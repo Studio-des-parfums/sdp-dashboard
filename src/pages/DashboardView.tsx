@@ -17,6 +17,8 @@ import MarketplaceRenderer from '../components/aglae/MarketplaceRenderer'
 import NinnoRenderer from '../components/ninno/NinnoRenderer'
 import LyloRenderer from '../components/lylo/LyloRenderer'
 import NonoRenderer from '../components/nono/NonoRenderer'
+import PoluxRenderer from '../components/polux/PoluxRenderer'
+import { CreateTeamModal } from '../components/polux/CreateTeamModal'
 import HomePage from '../components/home/HomePage'
 import { mockUser, mockNotifications } from '../data/mockData'
 import { ticketsClient } from '../api/ticketsClient'
@@ -47,6 +49,7 @@ export function DashboardView() {
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null)
 
   const [selectOpen, setSelectOpen] = useState(false)
+  const [createTeamOpen, setCreateTeamOpen] = useState(false)
 
   // Rétrocompatibilité avec d'anciens liens utilisant les slugs pré-renommage (marketplace/analytics).
   const normalizedSlug = slug === 'marketplace' ? 'aglae' : slug === 'analytics' ? 'lylo' : slug
@@ -96,6 +99,7 @@ export function DashboardView() {
   const isNinno = normalizedSlug === 'mobile-app'
   const isLylo = normalizedSlug === 'lylo'
   const isNono = normalizedSlug === 'nono'
+  const isPolux = normalizedSlug === 'polux'
   const isAdmin = normalizedSlug === 'admin-portal'
   const isOcrSection = isMarketplace && MARKETPLACE_OCR_SECTIONS.has(activeSection)
   const isNinnoAdminSection = isNinno && NINNO_ADMIN_SECTIONS.has(activeSection)
@@ -121,6 +125,12 @@ export function DashboardView() {
         onOpenSettings={() => setSettingsOpen(true)}
         onLogout={() => { logout(); navigate('/login') }}
         badges={isAdmin && openTicketsCount > 0 ? { tickets: openTicketsCount } : undefined}
+        groupedSection={isPolux ? {
+          label: 'Équipes',
+          sectionIds: (dashboard?.sections ?? []).filter((s) => s.id.startsWith('team-')).map((s) => s.id),
+          addLabel: 'Ajouter une équipe',
+          onAddClick: () => setCreateTeamOpen(true),
+        } : undefined}
       />
       <main className="flex-1 overflow-y-auto">
         <div className="h-14 border-b border-gray-200 flex items-center px-6 gap-4">
@@ -239,6 +249,8 @@ export function DashboardView() {
               />
             ) : isLyloSections ? (
               <LyloRenderer section={activeSection} />
+            ) : isPolux ? (
+              <PoluxRenderer section={activeSection} />
             ) : isNono ? (
               <NonoRenderer section={activeSection} />
             ) : isNinnoAdminSection ? (
@@ -321,6 +333,19 @@ export function DashboardView() {
         </div>
       </main>
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      {isPolux && (
+        <CreateTeamModal
+          open={createTeamOpen}
+          onClose={() => setCreateTeamOpen(false)}
+          onCreated={(team) => {
+            setDashboard((prev) => prev && {
+              ...prev,
+              sections: [...prev.sections, { id: `team-${team.slug}`, name: team.name, icon: 'Users', metricIds: [], chartIds: [] }],
+            })
+            setActiveSection(`team-${team.slug}`)
+          }}
+        />
+      )}
     </div>
   )
 }
