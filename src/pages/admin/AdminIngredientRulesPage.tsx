@@ -450,13 +450,16 @@ function RuleFormFields({
       )}
 
       <div>
-        <label className="text-xs text-gray-600 mb-1 block">Note libre</label>
+        <label className="text-xs text-gray-600 mb-1 block">Pourquoi cette règle ? (facultatif)</label>
         <input
           value={form.note}
           onChange={(e) => setForm({ ...form, note: e.target.value })}
-          placeholder="Commentaire, justification…"
+          placeholder="Ex : odeurs trop proches, effet écœurant ensemble…"
           className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
         />
+        <p className="text-[11px] text-gray-500 mt-1">
+          Affiché au client dans l'alerte, uniquement pour les règles d'incompatibilité et de limite de groupe.
+        </p>
       </div>
     </div>
   )
@@ -712,7 +715,7 @@ export default function AdminIngredientRulesPage({ onBack }: { onBack: () => voi
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Quantité</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Notes</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Détail</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Note</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Raison</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Statut</th>
               </tr>
             </thead>
