@@ -463,3 +463,5 @@ export const customerReviewsApi = {
     return handleResponse(response)
   },
 }
+
+export { analyticsApi } from './analyticsClient'
