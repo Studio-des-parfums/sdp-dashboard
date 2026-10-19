@@ -16,6 +16,8 @@ export interface PoluxTeam {
   member_ids: number[]
   /** Équipe officielle (ex: Informatique) — ne peut pas être supprimée, même par qui l'a créée. */
   is_official: boolean
+  /** Date de fin pour les espaces créés à la volée (null pour les équipes officielles). À expiration : proposer de prolonger ou supprimer. */
+  end_date: string | null
 }
 
 export interface PoluxReminder {

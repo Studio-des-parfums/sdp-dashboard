@@ -7,6 +7,13 @@ import { CreateTaskModal } from '../../components/polux/CreateTaskModal'
 import { TeamMembersModal } from '../../components/polux/TeamMembersModal'
 import { CompletedTasksModal } from '../../components/polux/CompletedTasksModal'
 import { Button } from '../../components/ui/lylo/Button'
+import { Input } from '../../components/ui/lylo/Input'
+
+function defaultExtendedDate(): string {
+  const d = new Date()
+  d.setDate(d.getDate() + 30)
+  return d.toISOString().slice(0, 10)
+}
 
 export default function PoluxTeamPage({ teamSlug, onDeleted }: { teamSlug: string; onDeleted?: () => void }) {
   const [teams, setTeams] = useState<PoluxTeam[]>([])
@@ -18,6 +25,8 @@ export default function PoluxTeamPage({ teamSlug, onDeleted }: { teamSlug: strin
   const [completedOpen, setCompletedOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [extendDate, setExtendDate] = useState(defaultExtendedDate())
+  const [isExtending, setIsExtending] = useState(false)
 
   useEffect(() => {
     Promise.all([poluxApi.getTeams(), poluxApi.getTasks(), poluxApi.getUsers()])
@@ -65,8 +74,23 @@ export default function PoluxTeamPage({ teamSlug, onDeleted }: { teamSlug: strin
     }
   }
 
+  async function handleExtendTeam() {
+    if (!team || !extendDate) return
+    setIsExtending(true)
+    try {
+      const updated = await poluxApi.updateTeam(team.id, { end_date: extendDate })
+      setTeams((prev) => prev.map((t) => (t.id === updated.id ? updated : t)))
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'Erreur lors de la prolongation de l\'espace')
+    } finally {
+      setIsExtending(false)
+    }
+  }
+
   if (loading) return <div className="p-6 text-sm text-gray-500">Chargement...</div>
   if (!team) return <div className="p-6 text-sm text-gray-500">Équipe introuvable.</div>
+
+  const isExpired = !team.is_official && !!team.end_date && new Date(team.end_date).getTime() < Date.now()
 
   return (
     <div className="space-y-6 p-6">
@@ -79,6 +103,11 @@ export default function PoluxTeamPage({ teamSlug, onDeleted }: { teamSlug: strin
               {team.is_official && (
                 <span className="inline-flex items-center rounded-full bg-indigo-600/10 px-2 py-0.5 text-xs font-medium text-indigo-600">
                   Officielle
+                </span>
+              )}
+              {!team.is_official && team.end_date && (
+                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${isExpired ? 'bg-red-600/10 text-red-600' : 'bg-gray-200 text-gray-600'}`}>
+                  {isExpired ? 'Expiré le' : 'Expire le'} {new Date(team.end_date).toLocaleDateString('fr-FR')}
                 </span>
               )}
             </div>
@@ -109,6 +138,23 @@ export default function PoluxTeamPage({ teamSlug, onDeleted }: { teamSlug: strin
           </div>
         </div>
       </div>
+
+      {isExpired && (
+        <div className="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50/40 p-4 md:flex-row md:items-center md:justify-between">
+          <div className="text-sm text-red-700">
+            Cet espace est arrivé à expiration le {new Date(team.end_date!).toLocaleDateString('fr-FR')}. Prolonge-le ou supprime-le — sans action, tu risques de perdre l'accès à son contenu.
+          </div>
+          <div className="flex items-center gap-2">
+            <Input type="date" value={extendDate} onChange={(e) => setExtendDate(e.target.value)} className="w-40" />
+            <Button type="button" variant="primary" onClick={handleExtendTeam} disabled={isExtending || !extendDate}>
+              Prolonger
+            </Button>
+            <Button type="button" variant="danger" onClick={handleDeleteTeam} disabled={isDeleting}>
+              Supprimer l'espace
+            </Button>
+          </div>
+        </div>
+      )}
 
       <TaskListView tasks={activeTeamTasks} users={users} showProjectColumn onOpenTask={setSelectedTask} />
 

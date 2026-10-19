@@ -128,16 +128,27 @@ export const poluxApi = {
     return request('/teams')
   },
 
-  async createTeam(input: { name: string; color: string }): Promise<PoluxTeam> {
+  async createTeam(input: { name: string; color: string; end_date: string }): Promise<PoluxTeam> {
     if (USE_MOCK) {
       const slug = input.name.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
       const creatorEmail = currentUserEmail()
       const creator = mockPoluxUsers.find((u) => u.email === creatorEmail) ?? mockPoluxUsers[0]
-      const team: PoluxTeam = { id: nextTeamId++, slug, name: input.name.trim(), color: input.color, member_ids: [creator.id], is_official: false }
+      const team: PoluxTeam = { id: nextTeamId++, slug, name: input.name.trim(), color: input.color, member_ids: [creator.id], is_official: false, end_date: input.end_date }
       teams = [...teams, team]
       return delay(team)
     }
     return request('/teams', { method: 'POST', body: JSON.stringify(input) })
+  },
+
+  async updateTeam(teamId: number, patch: { end_date?: string | null }): Promise<PoluxTeam> {
+    if (USE_MOCK) {
+      const index = teams.findIndex((t) => t.id === teamId)
+      if (index === -1) throw new Error('Équipe introuvable')
+      const updated = { ...teams[index], ...patch }
+      teams = [...teams.slice(0, index), updated, ...teams.slice(index + 1)]
+      return delay(updated)
+    }
+    return request(`/teams/${teamId}`, { method: 'PATCH', body: JSON.stringify(patch) })
   },
 
   async addTeamMember(teamId: number, userId: number): Promise<void> {
