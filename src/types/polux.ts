@@ -62,3 +62,51 @@ export interface PoluxTask {
   attachments: PoluxAttachment[]
   comments: PoluxComment[]
 }
+
+/** Type d'appelant — conditionne l'affichage du champ société sur la fiche lead. */
+export type PoluxLeadContactType = 'particulier' | 'professionnel'
+
+/**
+ * Pipeline de suivi d'un lead, de l'appel initial jusqu'à la venue sur place (ou l'abandon).
+ * Permet de savoir qui relancer et quand, sans dépendre du statut des tâches projet.
+ */
+export type PoluxLeadStatus =
+  | 'nouveau'
+  | 'a_relancer'
+  | 'acompte_1_recu'
+  | 'acompte_2_recu'
+  | 'confirme'
+  | 'realise'
+  | 'perdu'
+
+/** Une entrée de l'historique de suivi d'un lead (appel, relance, email, note libre). */
+export interface PoluxLeadInteraction {
+  id: number
+  lead_id: number
+  author_id: number
+  body: string
+  created_at: string
+}
+
+export interface PoluxLead {
+  id: number
+  contact_type: PoluxLeadContactType
+  last_name: string
+  first_name: string
+  phone: string
+  email: string
+  /** Obligatoire si contact_type === 'professionnel', sinon null. */
+  company: string | null
+  info: string
+  project_name: string
+  project_date: string | null
+  first_deposit_date: string | null
+  second_deposit_date: string | null
+  status: PoluxLeadStatus
+  call_date: string
+  next_follow_up_at: string | null
+  assigned_to_id: number | null
+  created_by: number
+  created_at: string
+  interactions: PoluxLeadInteraction[]
+}

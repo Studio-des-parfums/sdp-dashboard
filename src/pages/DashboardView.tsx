@@ -264,6 +264,7 @@ export function DashboardView() {
             ) : isPolux ? (
               <PoluxRenderer
                 section={activeSection}
+                onSectionChange={setActiveSection}
                 onTeamDeleted={(teamSlug) => {
                   setDashboard((prev) => prev && { ...prev, sections: prev.sections.filter((s) => s.id !== `team-${teamSlug}`) })
                   setActiveSection('accueil')

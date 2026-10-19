@@ -232,7 +232,10 @@ function UsersTab() {
   }
 
   const saveNew = async () => {
-    if (!newUser.email || !newUser.first_name || !newUser.last_name || !newUser.role_id) return
+    if (!newUser.email || !newUser.first_name || !newUser.last_name || !newUser.role_id) {
+      showError('Champs manquants', 'Prénom, nom, email et rôle sont requis.')
+      return
+    }
     setSaving(true)
     try {
       const created = await adminClient.createUser(newUser)
@@ -350,7 +353,7 @@ function UsersTab() {
               </select>
             </div>
             <div className="flex gap-2">
-              <button onClick={saveNew} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm transition-colors">Créer</button>
+              <button onClick={saveNew} disabled={saving} className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm transition-colors">Créer</button>
               <button onClick={() => setShowNew(false)} className="text-gray-500 hover:text-gray-900 px-4 py-2 rounded-lg text-sm transition-colors">Annuler</button>
             </div>
           </div>

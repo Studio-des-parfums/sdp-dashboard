@@ -1,6 +1,7 @@
-import type { PoluxComment, PoluxTask, PoluxTeam, PoluxUserRef } from '../types/polux'
+import type { PoluxComment, PoluxLead, PoluxLeadInteraction, PoluxTask, PoluxTeam, PoluxUserRef } from '../types/polux'
 import {
   mockPoluxComments,
+  mockPoluxLeads,
   mockPoluxTasks,
   mockPoluxTeams,
   mockPoluxUsers,
@@ -55,11 +56,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 let tasks = [...mockPoluxTasks]
 let comments = [...mockPoluxComments]
 let teams = [...mockPoluxTeams]
+let leads = [...mockPoluxLeads]
 let mentionNotifications: PoluxMentionNotification[] = []
 let nextTaskId = tasks.length + 1
 let nextCommentId = comments.length + 1
 let nextTeamId = teams.length + 1
 let nextNotificationId = 1
+let nextLeadId = leads.length + 1
+let nextLeadInteractionId = leads.reduce((max, l) => Math.max(max, ...l.interactions.map((i) => i.id)), 0) + 1
 
 export interface TaskPatch {
   title?: string
@@ -84,6 +88,26 @@ export interface TaskInput {
   start_date: string | null
   deadline: string | null
 }
+
+export interface LeadInput {
+  contact_type: PoluxLead['contact_type']
+  last_name: string
+  first_name: string
+  phone: string
+  email: string
+  company: string | null
+  info: string
+  project_name: string
+  project_date: string | null
+  first_deposit_date: string | null
+  second_deposit_date: string | null
+  status: PoluxLead['status']
+  call_date: string
+  next_follow_up_at: string | null
+  assigned_to_id: number | null
+}
+
+export type LeadPatch = Partial<LeadInput>
 
 export const poluxApi = {
   async getTeams(): Promise<PoluxTeam[]> {
@@ -264,5 +288,67 @@ export const poluxApi = {
       return delay(undefined)
     }
     return request(`/attachments/${attachmentId}`, { method: 'DELETE' })
+  },
+
+  async getLeads(): Promise<PoluxLead[]> {
+    if (USE_MOCK) return delay([...leads])
+    return request('/leads')
+  },
+
+  async createLead(input: LeadInput): Promise<PoluxLead> {
+    if (USE_MOCK) {
+      const creatorEmail = currentUserEmail()
+      const creator = mockPoluxUsers.find((u) => u.email === creatorEmail) ?? mockPoluxUsers[0]
+      const lead: PoluxLead = {
+        id: nextLeadId++,
+        ...input,
+        created_by: creator.id,
+        created_at: new Date().toISOString(),
+        interactions: [],
+      }
+      leads = [...leads, lead]
+      return delay(lead)
+    }
+    return request('/leads', { method: 'POST', body: JSON.stringify(input) })
+  },
+
+  async updateLead(leadId: number, patch: LeadPatch): Promise<PoluxLead> {
+    if (USE_MOCK) {
+      const index = leads.findIndex((l) => l.id === leadId)
+      if (index === -1) throw new Error('Lead introuvable')
+      const updated = { ...leads[index], ...patch }
+      leads = [...leads.slice(0, index), updated, ...leads.slice(index + 1)]
+      return delay(updated)
+    }
+    return request(`/leads/${leadId}`, { method: 'PUT', body: JSON.stringify(patch) })
+  },
+
+  async deleteLead(leadId: number): Promise<void> {
+    if (USE_MOCK) {
+      leads = leads.filter((l) => l.id !== leadId)
+      return delay(undefined)
+    }
+    return request(`/leads/${leadId}`, { method: 'DELETE' })
+  },
+
+  async addLeadInteraction(leadId: number, body: string): Promise<PoluxLeadInteraction> {
+    if (USE_MOCK) {
+      const authorEmail = currentUserEmail()
+      const author = mockPoluxUsers.find((u) => u.email === authorEmail) ?? mockPoluxUsers[0]
+      const interaction: PoluxLeadInteraction = {
+        id: nextLeadInteractionId++,
+        lead_id: leadId,
+        author_id: author.id,
+        body,
+        created_at: new Date().toISOString(),
+      }
+      const index = leads.findIndex((l) => l.id === leadId)
+      if (index !== -1) {
+        const updated = { ...leads[index], interactions: [...leads[index].interactions, interaction] }
+        leads = [...leads.slice(0, index), updated, ...leads.slice(index + 1)]
+      }
+      return delay(interaction)
+    }
+    return request(`/leads/${leadId}/interactions`, { method: 'POST', body: JSON.stringify({ body }) })
   },
 }

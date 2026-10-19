@@ -1,4 +1,4 @@
-import type { PoluxAttachment, PoluxComment, PoluxReminder, PoluxTask, PoluxTeam, PoluxUserRef } from '../types/polux'
+import type { PoluxAttachment, PoluxComment, PoluxLead, PoluxLeadInteraction, PoluxReminder, PoluxTask, PoluxTeam, PoluxUserRef } from '../types/polux'
 
 export const mockPoluxUsers: PoluxUserRef[] = [
   { id: 1, first_name: 'Thomas', last_name: 'Martin', email: 'thomas@sdp.fr' },
@@ -90,5 +90,43 @@ export const mockPoluxTasks: PoluxTask[] = [
     assigned_to_ids: [2], created_by: 5, priority: 'urgente', color: '#ef4444', status: 'en_cours',
     start_date: null, deadline: iso(0), created_at: iso(-1),
     reminders: [], attachments: [], comments: [],
+  },
+]
+
+export const mockPoluxLeadInteractions: PoluxLeadInteraction[] = [
+  { id: 1, lead_id: 1, author_id: 2, body: 'Premier contact téléphonique, devis à préparer.', created_at: iso(-6) },
+  { id: 2, lead_id: 1, author_id: 2, body: 'Devis envoyé par mail.', created_at: iso(-4) },
+]
+
+export const mockPoluxLeads: PoluxLead[] = [
+  {
+    id: 1, contact_type: 'particulier', last_name: 'Dupont', first_name: 'Julie',
+    phone: '06 12 34 56 78', email: 'julie.dupont@example.com', company: null,
+    info: 'Intéressée par une prestation pour un anniversaire de 40 ans.',
+    project_name: 'Anniversaire Julie D.', project_date: iso(30),
+    first_deposit_date: null, second_deposit_date: null,
+    status: 'a_relancer', call_date: iso(-6), next_follow_up_at: iso(1),
+    assigned_to_id: 2, created_by: 2, created_at: iso(-6),
+    interactions: mockPoluxLeadInteractions.filter((i) => i.lead_id === 1),
+  },
+  {
+    id: 2, contact_type: 'professionnel', last_name: 'Moreau', first_name: 'Antoine',
+    phone: '06 98 76 54 32', email: 'a.moreau@entreprise-exemple.fr', company: 'Entreprise Exemple SAS',
+    info: 'Soirée d\'entreprise pour 80 personnes, date à confirmer.',
+    project_name: 'Soirée fin d\'année Entreprise Exemple', project_date: iso(60),
+    first_deposit_date: iso(-1), second_deposit_date: null,
+    status: 'acompte_1_recu', call_date: iso(-10), next_follow_up_at: iso(14),
+    assigned_to_id: 2, created_by: 2, created_at: iso(-10),
+    interactions: [],
+  },
+  {
+    id: 3, contact_type: 'particulier', last_name: 'Lefèvre', first_name: 'Sophie',
+    phone: '07 11 22 33 44', email: 'sophie.lefevre@example.com', company: null,
+    info: 'Mariage, demande de devis envoyée mais aucune nouvelle depuis.',
+    project_name: 'Mariage Sophie & Karim', project_date: null,
+    first_deposit_date: null, second_deposit_date: null,
+    status: 'nouveau', call_date: iso(0), next_follow_up_at: null,
+    assigned_to_id: null, created_by: 2, created_at: iso(0),
+    interactions: [],
   },
 ]
