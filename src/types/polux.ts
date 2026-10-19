@@ -14,6 +14,8 @@ export interface PoluxTeam {
   name: string
   color: string
   member_ids: number[]
+  /** Équipe officielle (ex: Informatique) — ne peut pas être supprimée, même par qui l'a créée. */
+  is_official: boolean
 }
 
 export interface PoluxReminder {
@@ -47,11 +49,14 @@ export interface PoluxComment {
 export interface PoluxTask {
   id: number
   project_name: string | null
-  team_id: number
+  /** Null pour une tâche personnelle (voir owner_id) — sinon l'équipe qui la porte. */
+  team_id: number | null
   title: string
   description: string
   assigned_to_ids: number[]
   created_by: number
+  /** Si non-null, tâche personnelle visible uniquement par cet utilisateur (team_id est alors null). */
+  owner_id: number | null
   priority: PoluxTaskPriority
   color: string | null
   status: PoluxTaskStatus

@@ -4,21 +4,25 @@ import type { PoluxLead, PoluxLeadContactType, PoluxLeadStatus, PoluxUserRef } f
 import { Button } from '../../components/ui/lylo/Button'
 import { Input } from '../../components/ui/lylo/Input'
 import { LeadDetailModal } from '../../components/polux/LeadDetailModal'
+import { LeadsAccessModal } from '../../components/polux/LeadsAccessModal'
 import { LEAD_CONTACT_TYPE_LABEL, LEAD_STATUS_CLASS, LEAD_STATUS_LABEL, formatLeadDate, isLeadFollowUpDue } from '../../components/polux/leadStatus'
 
 interface PoluxLeadsPageProps {
   onCreateLead: () => void
+  canManageAccess: boolean
 }
 
 
 type StatusFilter = 'tous' | PoluxLeadStatus
 type ContactFilter = 'tous' | PoluxLeadContactType
 
-export default function PoluxLeadsPage({ onCreateLead }: PoluxLeadsPageProps) {
+export default function PoluxLeadsPage({ onCreateLead, canManageAccess }: PoluxLeadsPageProps) {
   const [leads, setLeads] = useState<PoluxLead[]>([])
   const [users, setUsers] = useState<PoluxUserRef[]>([])
+  const [accessIds, setAccessIds] = useState<number[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedLead, setSelectedLead] = useState<PoluxLead | null>(null)
+  const [accessOpen, setAccessOpen] = useState(false)
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('tous')
   const [contactFilter, setContactFilter] = useState<ContactFilter>('tous')
@@ -27,10 +31,13 @@ export default function PoluxLeadsPage({ onCreateLead }: PoluxLeadsPageProps) {
   const [onlyFollowUpDue, setOnlyFollowUpDue] = useState(false)
 
   useEffect(() => {
-    Promise.all([poluxApi.getLeads(), poluxApi.getUsers()])
-      .then(([l, u]) => { setLeads(l); setUsers(u) })
+    Promise.all([poluxApi.getLeads(), poluxApi.getUsers(), poluxApi.getLeadsAccess()])
+      .then(([l, u, a]) => { setLeads(l); setUsers(u); setAccessIds(a) })
       .finally(() => setLoading(false))
   }, [])
+
+  const accessMembers = useMemo(() => users.filter((u) => accessIds.includes(u.id)), [users, accessIds])
+  const accessCandidates = useMemo(() => users.filter((u) => !accessIds.includes(u.id)), [users, accessIds])
 
   function handleUpdated(updated: PoluxLead) {
     setLeads((prev) => prev.map((l) => (l.id === updated.id ? updated : l)))
@@ -81,9 +88,16 @@ export default function PoluxLeadsPage({ onCreateLead }: PoluxLeadsPageProps) {
               {followUpDueCount === 0 && 'aucune relance en retard'}.
             </p>
           </div>
-          <Button variant="primary" type="button" onClick={onCreateLead}>
-            Nouveau lead
-          </Button>
+          <div className="flex gap-2">
+            {canManageAccess && (
+              <Button type="button" onClick={() => setAccessOpen(true)}>
+                Membres
+              </Button>
+            )}
+            <Button variant="primary" type="button" onClick={onCreateLead}>
+              Nouveau lead
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -169,6 +183,14 @@ export default function PoluxLeadsPage({ onCreateLead }: PoluxLeadsPageProps) {
       </div>
 
       <LeadDetailModal lead={selectedLead} users={users} onClose={() => setSelectedLead(null)} onUpdated={handleUpdated} onDeleted={handleDeleted} />
+      <LeadsAccessModal
+        open={accessOpen}
+        members={accessMembers}
+        candidates={accessCandidates}
+        onClose={() => setAccessOpen(false)}
+        onAdded={(userId) => setAccessIds((prev) => [...prev, userId])}
+        onRemoved={(userId) => setAccessIds((prev) => prev.filter((id) => id !== userId))}
+      />
     </div>
   )
 }

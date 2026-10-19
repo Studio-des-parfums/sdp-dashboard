@@ -57,6 +57,9 @@ let tasks = [...mockPoluxTasks]
 let comments = [...mockPoluxComments]
 let teams = [...mockPoluxTeams]
 let leads = [...mockPoluxLeads]
+// Accès à l'espace Leads/Prospects — même logique que member_ids sur une équipe, mais pour
+// un espace unique (pas de notion d'équipe dédiée). Les admins contournent toujours ce contrôle.
+let leadsAccessIds: number[] = [1, 2]
 let mentionNotifications: PoluxMentionNotification[] = []
 let nextTaskId = tasks.length + 1
 let nextCommentId = comments.length + 1
@@ -83,6 +86,16 @@ export interface TaskInput {
   title: string
   description: string
   assigned_to_ids: number[]
+  priority: PoluxTask['priority']
+  color: string | null
+  start_date: string | null
+  deadline: string | null
+}
+
+/** Tâche personnelle : pas d'équipe, visible uniquement par qui l'a créée. */
+export interface PersonalTaskInput {
+  title: string
+  description: string
   priority: PoluxTask['priority']
   color: string | null
   start_date: string | null
@@ -120,7 +133,7 @@ export const poluxApi = {
       const slug = input.name.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
       const creatorEmail = currentUserEmail()
       const creator = mockPoluxUsers.find((u) => u.email === creatorEmail) ?? mockPoluxUsers[0]
-      const team: PoluxTeam = { id: nextTeamId++, slug, name: input.name.trim(), color: input.color, member_ids: [creator.id] }
+      const team: PoluxTeam = { id: nextTeamId++, slug, name: input.name.trim(), color: input.color, member_ids: [creator.id], is_official: false }
       teams = [...teams, team]
       return delay(team)
     }
@@ -153,6 +166,8 @@ export const poluxApi = {
 
   async deleteTeam(teamId: number): Promise<void> {
     if (USE_MOCK) {
+      const team = teams.find((t) => t.id === teamId)
+      if (team?.is_official) throw new Error('Cette équipe est officielle et ne peut pas être supprimée')
       teams = teams.filter((t) => t.id !== teamId)
       tasks = tasks.filter((t) => t.team_id !== teamId)
       return delay(undefined)
@@ -163,6 +178,34 @@ export const poluxApi = {
   async getUsers(): Promise<PoluxUserRef[]> {
     if (USE_MOCK) return delay(mockPoluxUsers)
     return request('/users')
+  },
+
+  async getCurrentUser(): Promise<PoluxUserRef | null> {
+    const email = currentUserEmail()
+    if (!email) return null
+    if (USE_MOCK) return delay(mockPoluxUsers.find((u) => u.email === email) ?? null)
+    return request('/users/me')
+  },
+
+  async getLeadsAccess(): Promise<number[]> {
+    if (USE_MOCK) return delay([...leadsAccessIds])
+    return request('/leads/access')
+  },
+
+  async addLeadsAccessMember(userId: number): Promise<void> {
+    if (USE_MOCK) {
+      if (!leadsAccessIds.includes(userId)) leadsAccessIds = [...leadsAccessIds, userId]
+      return delay(undefined)
+    }
+    return request('/leads/access', { method: 'POST', body: JSON.stringify({ user_id: userId }) })
+  },
+
+  async removeLeadsAccessMember(userId: number): Promise<void> {
+    if (USE_MOCK) {
+      leadsAccessIds = leadsAccessIds.filter((id) => id !== userId)
+      return delay(undefined)
+    }
+    return request(`/leads/access/${userId}`, { method: 'DELETE' })
   },
 
   async getTasks(): Promise<PoluxTask[]> {
@@ -180,6 +223,7 @@ export const poluxApi = {
         description: input.description,
         assigned_to_ids: input.assigned_to_ids,
         created_by: mockPoluxUsers[0].id,
+        owner_id: null,
         priority: input.priority,
         color: input.color,
         status: 'a_faire',
@@ -194,6 +238,35 @@ export const poluxApi = {
       return delay(task)
     }
     return request('/tasks', { method: 'POST', body: JSON.stringify(input) })
+  },
+
+  async createPersonalTask(input: PersonalTaskInput): Promise<PoluxTask> {
+    if (USE_MOCK) {
+      const creatorEmail = currentUserEmail()
+      const creator = mockPoluxUsers.find((u) => u.email === creatorEmail) ?? mockPoluxUsers[0]
+      const task: PoluxTask = {
+        id: nextTaskId++,
+        project_name: null,
+        team_id: null,
+        title: input.title,
+        description: input.description,
+        assigned_to_ids: [creator.id],
+        created_by: creator.id,
+        owner_id: creator.id,
+        priority: input.priority,
+        color: input.color,
+        status: 'a_faire',
+        start_date: input.start_date,
+        deadline: input.deadline,
+        created_at: new Date().toISOString(),
+        reminders: [],
+        attachments: [],
+        comments: [],
+      }
+      tasks = [...tasks, task]
+      return delay(task)
+    }
+    return request('/tasks', { method: 'POST', body: JSON.stringify({ ...input, team_id: null, assigned_to_ids: [] }) })
   },
 
   async updateTask(taskId: number, patch: TaskPatch): Promise<PoluxTask> {

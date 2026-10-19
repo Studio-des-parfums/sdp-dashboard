@@ -81,12 +81,21 @@ export function DashboardView() {
     api.getDashboard(slug)
       .then(async (d) => {
         if (normalized === 'polux') {
-          const teams = await poluxApi.getTeams().catch(() => [])
+          const isPoluxAdmin = sdpUser?.role_name === 'admin'
+          const [teams, leadsAccessIds, currentPoluxUser] = await Promise.all([
+            poluxApi.getTeams().catch(() => []),
+            poluxApi.getLeadsAccess().catch(() => []),
+            poluxApi.getCurrentUser().catch(() => null),
+          ])
+          const hasAccess = (memberIds: number[]) =>
+            isPoluxAdmin || (!!currentPoluxUser && memberIds.includes(currentPoluxUser.id))
           d = {
             ...d,
             sections: [
-              ...d.sections,
-              ...teams.map((team) => ({ id: `team-${team.slug}`, name: team.name, icon: 'Users', metricIds: [], chartIds: [] })),
+              ...d.sections.filter((s) => s.id !== 'leads' || hasAccess(leadsAccessIds)),
+              ...teams
+                .filter((team) => hasAccess(team.member_ids))
+                .map((team) => ({ id: `team-${team.slug}`, name: team.name, icon: 'Users', metricIds: [], chartIds: [] })),
             ],
           }
         }
@@ -95,7 +104,7 @@ export function DashboardView() {
       })
       .catch(() => setError('Impossible de charger le dashboard'))
       .finally(() => setLoading(false))
-  }, [slug, isHome])
+  }, [slug, isHome, sdpUser?.role_name])
 
   // Une fois la liste des projets autorisés chargée, on vérifie que le projet demandé
   // (autre que l'accueil, toujours accessible) en fait bien partie.
@@ -138,8 +147,8 @@ export function DashboardView() {
         onLogout={() => { logout(); navigate('/login') }}
         badges={isAdmin && openTicketsCount > 0 ? { tickets: openTicketsCount } : undefined}
         groupedSection={isPolux ? {
-          label: 'Tâches Équipes',
-          sectionIds: (dashboard?.sections ?? []).filter((s) => s.id.startsWith('team-')).map((s) => s.id),
+          label: 'Espaces',
+          sectionIds: (dashboard?.sections ?? []).filter((s) => s.id.startsWith('team-') || s.id === 'leads').map((s) => s.id),
           addLabel: 'Ajouter une équipe',
           onAddClick: () => setCreateTeamOpen(true),
         } : undefined}
@@ -264,6 +273,7 @@ export function DashboardView() {
             ) : isPolux ? (
               <PoluxRenderer
                 section={activeSection}
+                isAdmin={sdpUser?.role_name === 'admin'}
                 onSectionChange={setActiveSection}
                 onTeamDeleted={(teamSlug) => {
                   setDashboard((prev) => prev && { ...prev, sections: prev.sections.filter((s) => s.id !== `team-${teamSlug}`) })

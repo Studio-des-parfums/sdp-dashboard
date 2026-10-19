@@ -118,8 +118,7 @@ export const mockDashboards: Record<string, Dashboard> = {
   'polux': {
     id: 7, name: 'Polux', slug: 'polux', description: 'Gestion de projets et de tâches', color: '#6366f1', status: 'active', created_at: '2024-01-01T00:00:00Z',
     sections: [
-      { id: 'accueil', name: 'Accueil', icon: 'LayoutDashboard', metricIds: [], chartIds: [] },
-      { id: 'mes-taches', name: 'Mes tâches', icon: 'StickyNote', metricIds: [], chartIds: [] },
+      { id: 'accueil', name: 'Mon espace', icon: 'LayoutDashboard', metricIds: [], chartIds: [] },
       { id: 'leads', name: 'Leads / Prospects', icon: 'Phone', metricIds: [], chartIds: [] },
       // Les sections "team-<slug>" sont ajoutées dynamiquement par DashboardView après
       // chargement de poluxApi.getTeams() — pas de liste figée ici.

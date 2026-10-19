@@ -9,9 +9,9 @@ export const mockPoluxUsers: PoluxUserRef[] = [
 ]
 
 export const mockPoluxTeams: PoluxTeam[] = [
-  { id: 1, slug: 'produit', name: 'Produit', color: '#6366f1', member_ids: [1, 2, 3] },
-  { id: 2, slug: 'marketing', name: 'Marketing', color: '#ec4899', member_ids: [4, 5] },
-  { id: 3, slug: 'support', name: 'Support', color: '#14b8a6', member_ids: [2, 5] },
+  { id: 1, slug: 'informatique', name: 'Informatique', color: '#6366f1', member_ids: [1, 2, 3], is_official: true },
+  { id: 2, slug: 'marketing', name: 'Marketing', color: '#ec4899', member_ids: [4, 5], is_official: false },
+  { id: 3, slug: 'support', name: 'Support', color: '#14b8a6', member_ids: [2, 5], is_official: false },
 ]
 
 function iso(daysFromNow: number): string {
@@ -38,56 +38,56 @@ export const mockPoluxTasks: PoluxTask[] = [
   {
     id: 1, project_name: 'Refonte Aglae', team_id: 1, title: 'Corriger le bug d\'affichage des commandes',
     description: 'Les commandes annulées restent visibles dans la liste active.',
-    assigned_to_ids: [2], created_by: 1, priority: 'urgente', color: '#ef4444', status: 'en_cours',
+    assigned_to_ids: [2], created_by: 1, owner_id: null, priority: 'urgente', color: '#ef4444', status: 'en_cours',
     start_date: iso(-10), deadline: iso(-1), created_at: iso(-7),
     reminders: mockPoluxReminders.filter(r => r.task_id === 1), attachments: [], comments: [],
   },
   {
     id: 2, project_name: 'Refonte Aglae', team_id: 1, title: 'Maquette de la nouvelle page produit',
     description: 'Proposer 2 variantes pour la fiche produit marketplace.',
-    assigned_to_ids: [2], created_by: 1, priority: 'haute', color: '#f59e0b', status: 'en_revision',
+    assigned_to_ids: [2], created_by: 1, owner_id: null, priority: 'haute', color: '#f59e0b', status: 'en_revision',
     start_date: iso(-5), deadline: iso(3), created_at: iso(-5),
     reminders: [], attachments: mockPoluxAttachments.filter(a => a.task_id === 2), comments: mockPoluxComments.filter(c => c.task_id === 2),
   },
   {
     id: 3, project_name: 'Appli Ninno v2', team_id: 1, title: 'Intégrer le SDK de notifications push',
     description: '',
-    assigned_to_ids: [3], created_by: 1, priority: 'moyenne', color: null, status: 'a_faire',
+    assigned_to_ids: [3], created_by: 1, owner_id: null, priority: 'moyenne', color: null, status: 'a_faire',
     start_date: null, deadline: iso(5), created_at: iso(-2),
     reminders: mockPoluxReminders.filter(r => r.task_id === 3), attachments: [], comments: [],
   },
   {
     id: 4, project_name: 'Appli Ninno v2', team_id: 1, title: 'Écrire les tests E2E du parcours de connexion',
     description: '',
-    assigned_to_ids: [], created_by: 1, priority: 'basse', color: null, status: 'a_faire',
+    assigned_to_ids: [], created_by: 1, owner_id: null, priority: 'basse', color: null, status: 'a_faire',
     start_date: null, deadline: null, created_at: iso(-1),
     reminders: [], attachments: [], comments: [],
   },
   {
     id: 5, project_name: 'Lancement campagne Q4', team_id: 2, title: 'Rédiger les visuels réseaux sociaux',
     description: 'Visuels pour Instagram et LinkedIn, thème fêtes de fin d\'année.',
-    assigned_to_ids: [4], created_by: 4, priority: 'haute', color: '#6366f1', status: 'en_cours',
+    assigned_to_ids: [4], created_by: 4, owner_id: null, priority: 'haute', color: '#6366f1', status: 'en_cours',
     start_date: iso(-4), deadline: iso(1), created_at: iso(-4),
     reminders: [], attachments: [], comments: [],
   },
   {
     id: 6, project_name: 'Lancement campagne Q4', team_id: 2, title: 'Planifier le calendrier d\'envoi des emails',
     description: '',
-    assigned_to_ids: [5], created_by: 4, priority: 'moyenne', color: '#10b981', status: 'termine',
+    assigned_to_ids: [5], created_by: 4, owner_id: null, priority: 'moyenne', color: '#10b981', status: 'termine',
     start_date: iso(-10), deadline: iso(-5), created_at: iso(-10),
     reminders: [], attachments: [], comments: [],
   },
   {
     id: 7, project_name: 'Base de connaissance', team_id: 3, title: 'Mettre à jour la FAQ sur les délais de livraison',
     description: '',
-    assigned_to_ids: [2], created_by: 5, priority: 'basse', color: null, status: 'a_faire',
+    assigned_to_ids: [2], created_by: 5, owner_id: null, priority: 'basse', color: null, status: 'a_faire',
     start_date: null, deadline: iso(10), created_at: iso(-1),
     reminders: [], attachments: [], comments: [],
   },
   {
     id: 8, project_name: 'Base de connaissance', team_id: 3, title: 'Répondre aux tickets en attente (>48h)',
     description: '',
-    assigned_to_ids: [2], created_by: 5, priority: 'urgente', color: '#ef4444', status: 'en_cours',
+    assigned_to_ids: [2], created_by: 5, owner_id: null, priority: 'urgente', color: '#ef4444', status: 'en_cours',
     start_date: null, deadline: iso(0), created_at: iso(-1),
     reminders: [], attachments: [], comments: [],
   },

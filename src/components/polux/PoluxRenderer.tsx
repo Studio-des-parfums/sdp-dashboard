@@ -1,5 +1,4 @@
 import PoluxHomePage from '../../pages/polux/PoluxHomePage'
-import PoluxMyTasksPage from '../../pages/polux/PoluxMyTasksPage'
 import PoluxTeamPage from '../../pages/polux/PoluxTeamPage'
 import PoluxLeadsPage from '../../pages/polux/PoluxLeadsPage'
 import PoluxLeadFormPage from '../../pages/polux/PoluxLeadFormPage'
@@ -10,12 +9,14 @@ interface PoluxRendererProps {
   section: string
   onTeamDeleted?: (teamSlug: string) => void
   onSectionChange?: (section: string) => void
+  isAdmin?: boolean
 }
 
-export default function PoluxRenderer({ section, onTeamDeleted, onSectionChange }: PoluxRendererProps) {
-  if (section === 'accueil') return <PoluxHomePage />
-  if (section === 'mes-taches') return <PoluxMyTasksPage />
-  if (section === 'leads') return <PoluxLeadsPage onCreateLead={() => onSectionChange?.('leads-nouveau')} />
+export default function PoluxRenderer({ section, onTeamDeleted, onSectionChange, isAdmin }: PoluxRendererProps) {
+  if (section === 'accueil') return <PoluxHomePage onOpenTeam={(slug) => onSectionChange?.(`team-${slug}`)} />
+  if (section === 'leads') {
+    return <PoluxLeadsPage onCreateLead={() => onSectionChange?.('leads-nouveau')} canManageAccess={!!isAdmin} />
+  }
   if (section === 'leads-nouveau') {
     return (
       <PoluxLeadFormPage

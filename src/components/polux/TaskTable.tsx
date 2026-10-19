@@ -113,7 +113,13 @@ export function TaskTable({ tasks, users, teams = [], showProjectColumn, showTea
                     </span>
                   </td>
                   {showProjectColumn && <td className="px-6 py-4 text-sm text-gray-600">{task.project_name ?? '—'}</td>}
-                  {showTeamColumn && <td className="px-6 py-4 text-sm text-gray-600">{teamById.get(task.team_id)?.name ?? '—'}</td>}
+                  {showTeamColumn && (
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {task.team_id != null ? teamById.get(task.team_id)?.name ?? '—' : (
+                        <span className="inline-flex items-center rounded-full bg-gray-300/10 px-2 py-1 text-[11px] font-medium text-gray-600">Personnel</span>
+                      )}
+                    </td>
+                  )}
                   <td className="px-6 py-4 text-sm text-gray-600">{assignees.length > 0 ? assignees.map((u) => `${u.first_name} ${u.last_name}`).join(', ') : 'Non assignée'}</td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex items-center rounded-full px-2 py-1 text-[11px] font-medium ${PRIORITY_CLASS[task.priority]}`}>{PRIORITY_LABEL[task.priority]}</span>

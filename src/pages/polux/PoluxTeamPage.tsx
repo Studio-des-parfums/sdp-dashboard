@@ -5,6 +5,7 @@ import { TaskListView } from '../../components/polux/TaskListView'
 import { TaskModal } from '../../components/polux/TaskModal'
 import { CreateTaskModal } from '../../components/polux/CreateTaskModal'
 import { TeamMembersModal } from '../../components/polux/TeamMembersModal'
+import { CompletedTasksModal } from '../../components/polux/CompletedTasksModal'
 import { Button } from '../../components/ui/lylo/Button'
 
 export default function PoluxTeamPage({ teamSlug, onDeleted }: { teamSlug: string; onDeleted?: () => void }) {
@@ -14,6 +15,7 @@ export default function PoluxTeamPage({ teamSlug, onDeleted }: { teamSlug: strin
   const [selectedTask, setSelectedTask] = useState<PoluxTask | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [membersOpen, setMembersOpen] = useState(false)
+  const [completedOpen, setCompletedOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -25,6 +27,7 @@ export default function PoluxTeamPage({ teamSlug, onDeleted }: { teamSlug: strin
 
   const team = useMemo(() => teams.find((t) => t.slug === teamSlug) ?? null, [teams, teamSlug])
   const teamTasks = useMemo(() => team ? tasks.filter((t) => t.team_id === team.id) : [], [tasks, team])
+  const activeTeamTasks = useMemo(() => teamTasks.filter((t) => t.status !== 'termine'), [teamTasks])
   const teamMembers = useMemo(() => team ? users.filter((u) => team.member_ids.includes(u.id)) : [], [users, team])
   const nonMembers = useMemo(() => team ? users.filter((u) => !team.member_ids.includes(u.id)) : [], [users, team])
 
@@ -73,6 +76,11 @@ export default function PoluxTeamPage({ teamSlug, onDeleted }: { teamSlug: strin
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: team.color }} />
               <h2 className="text-xl font-semibold text-gray-900">{team.name}</h2>
+              {team.is_official && (
+                <span className="inline-flex items-center rounded-full bg-indigo-600/10 px-2 py-0.5 text-xs font-medium text-indigo-600">
+                  Officielle
+                </span>
+              )}
             </div>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {teamMembers.map((m) => (
@@ -87,17 +95,22 @@ export default function PoluxTeamPage({ teamSlug, onDeleted }: { teamSlug: strin
             <Button type="button" onClick={() => setMembersOpen(true)}>
               Membres
             </Button>
+            <Button type="button" onClick={() => setCompletedOpen(true)}>
+              Tâches terminées
+            </Button>
             <Button variant="primary" type="button" onClick={() => setCreateOpen(true)}>
               Nouvelle tâche
             </Button>
-            <Button variant="danger" type="button" onClick={handleDeleteTeam} disabled={isDeleting}>
-              Supprimer l'équipe
-            </Button>
+            {!team.is_official && (
+              <Button variant="danger" type="button" onClick={handleDeleteTeam} disabled={isDeleting}>
+                Supprimer l'équipe
+              </Button>
+            )}
           </div>
         </div>
       </div>
 
-      <TaskListView tasks={teamTasks} users={users} showProjectColumn onOpenTask={setSelectedTask} />
+      <TaskListView tasks={activeTeamTasks} users={users} showProjectColumn onOpenTask={setSelectedTask} />
 
       <CreateTaskModal
         open={createOpen}
@@ -115,6 +128,14 @@ export default function PoluxTeamPage({ teamSlug, onDeleted }: { teamSlug: strin
         onClose={() => setMembersOpen(false)}
         onAdded={handleMemberAdded}
         onRemoved={handleMemberRemoved}
+      />
+      <CompletedTasksModal
+        open={completedOpen}
+        tasks={teamTasks}
+        users={users}
+        showProjectColumn
+        onClose={() => setCompletedOpen(false)}
+        onOpenTask={(task) => { setCompletedOpen(false); setSelectedTask(task) }}
       />
     </div>
   )
