@@ -70,20 +70,34 @@ function getFitStyle(
   rotation: number,
   zoom = 1,
 ): React.CSSProperties {
-  if (!size || boxW <= 0 || boxH <= 0) {
-    return { width: '100%', transform: `rotate(${rotation}deg)`, transition: 'transform 0.3s ease' }
-  }
   const rotated = rotation % 180 !== 0
-  const base = Math.min(boxW / size.w, boxH / size.h)
-  const scale = rotated ? Math.min(base, boxW / size.h, boxH / size.w) : base
-  const width = Math.floor(size.w * scale * zoom)
-  const height = Math.floor(size.h * scale * zoom)
+
+  if (!size || boxW <= 0 || boxH <= 0) {
+    return {
+      maxWidth: rotated ? `${boxH}px` : '100%',
+      maxHeight: rotated ? `${boxW > 0 ? boxW : boxH}px` : `${boxH}px`,
+      objectFit: 'contain',
+      transform: `rotate(${rotation}deg)`,
+      transition: 'transform 0.3s ease',
+    }
+  }
+
+  // When rotated 90deg or 270deg, visual width is size.h * scale and visual height is size.w * scale
+  // Constrain visual bounding box to fit inside boxW x boxH
+  const availW = rotated ? boxH : boxW
+  const availH = rotated ? boxW : boxH
+  const baseScale = Math.min(availW / size.w, availH / size.h)
+  const scale = baseScale * zoom
+  const width = Math.floor(size.w * scale)
+  const height = Math.floor(size.h * scale)
+
   return {
     width,
     height,
+    maxWidth: 'none',
+    maxHeight: 'none',
     transform: `rotate(${rotation}deg)`,
     transition: 'transform 0.3s ease',
-    marginTop: rotated ? Math.floor((width - height) / 2) : 0,
   }
 }
 
@@ -100,6 +114,7 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
   const [lightboxRotation, setLightboxRotation] = useState(0)
   const [lightboxZoom, setLightboxZoom] = useState(1)
   const previewRef = useRef<HTMLDivElement>(null)
+  const imageRef = useRef<HTMLImageElement>(null)
   const [previewWidth, setPreviewWidth] = useState(0)
   const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null)
   const [orders, setOrders] = useState<Order[]>([])
@@ -146,7 +161,13 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
     const observer = new ResizeObserver(update)
     observer.observe(el)
     return () => observer.disconnect()
-  }, [])
+  }, [loading, formula?.file_id])
+
+  useEffect(() => {
+    if (imageRef.current && imageRef.current.complete && imageRef.current.naturalWidth > 0) {
+      setNaturalSize({ w: imageRef.current.naturalWidth, h: imageRef.current.naturalHeight })
+    }
+  }, [thumbnailVersion, formula?.file_id, loading])
 
   const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const el = e.currentTarget
@@ -494,31 +515,47 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
             <h2 className="text-sm font-semibold text-gray-900 mb-4">🖼 Document associé</h2>
             {formula.file_id ? (
               <div>
-                <div ref={previewRef} className="bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-center">
+                <div
+                  ref={previewRef}
+                  className="relative w-full h-[420px] bg-gray-50 border border-gray-200 rounded-lg overflow-hidden flex items-center justify-center"
+                >
                   <img
+                    ref={imageRef}
                     src={`${formulasApi.getThumbnailUrl(formulaId)}?v=${thumbnailVersion}`}
                     alt="Aperçu"
-                    className="cursor-pointer relative z-10"
+                    className="cursor-pointer select-none"
                     onLoad={handleImageLoad}
                     style={getFitStyle(naturalSize, previewWidth, 420, previewRotation)}
                     onClick={() => { setLightboxImage(`${formulasApi.getThumbnailUrl(formulaId)}?v=${thumbnailVersion}`); setLightboxRotation(previewRotation); setLightboxZoom(1) }}
                   />
                 </div>
-                <div className="flex justify-center gap-2 mt-4">
+                <div className="relative z-10 flex justify-center gap-2 mt-4">
                   <button
+                    type="button"
                     onClick={() => setPreviewRotation(r => (r - 90 + 360) % 360)}
-                    className="text-xs text-gray-500 hover:text-gray-900 bg-white px-2 py-1 rounded transition-colors"
-                    title="Pivoter à gauche"
+                    className="text-xs text-gray-600 hover:text-gray-900 bg-white border border-gray-200 hover:border-gray-300 px-2.5 py-1.5 rounded-lg shadow-sm transition-colors cursor-pointer"
+                    title="Pivoter à gauche (-90°)"
                   >
                     ↺
                   </button>
                   <button
+                    type="button"
                     onClick={() => setPreviewRotation(r => (r + 90) % 360)}
-                    className="text-xs text-gray-500 hover:text-gray-900 bg-white px-2 py-1 rounded transition-colors"
-                    title="Pivoter à droite"
+                    className="text-xs text-gray-600 hover:text-gray-900 bg-white border border-gray-200 hover:border-gray-300 px-2.5 py-1.5 rounded-lg shadow-sm transition-colors cursor-pointer"
+                    title="Pivoter à droite (+90°)"
                   >
                     ↻
                   </button>
+                  {previewRotation !== 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setPreviewRotation(0)}
+                      className="text-xs text-gray-500 hover:text-gray-700 bg-white border border-gray-200 hover:border-gray-300 px-2 py-1.5 rounded-lg shadow-sm transition-colors cursor-pointer"
+                      title="Réinitialiser la rotation"
+                    >
+                      Reset
+                    </button>
+                  )}
                 </div>
                 <div className="mt-2 flex flex-col items-center gap-2">
                   <a
@@ -571,16 +608,16 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setLightboxImage(null)}>
           <div className="relative max-w-3xl w-full" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-center gap-4">
-              <div className={`flex flex-1 max-w-2xl rounded-lg ${lightboxZoom > 1 ? 'overflow-auto max-h-[70vh]' : ''}`}>
+              <div className={`relative flex flex-1 items-center justify-center rounded-lg max-w-2xl h-[70vh] max-h-[70vh] ${lightboxZoom > 1 ? 'overflow-auto' : 'overflow-hidden'}`}>
                 <img
                   src={lightboxImage}
                   alt="Aperçu"
-                  className="rounded-lg relative z-10 m-auto shrink-0"
+                  className="rounded-lg m-auto shrink-0 select-none"
                   onLoad={handleImageLoad}
                   style={getFitStyle(naturalSize, Math.min(window.innerWidth - 200, 632), window.innerHeight * 0.7, lightboxRotation, lightboxZoom)}
                 />
               </div>
-              <div className="bg-gray-100 border border-gray-200 rounded-lg px-3 py-2 flex flex-col gap-2 shrink-0">
+              <div className="relative z-20 bg-gray-100 border border-gray-200 rounded-lg px-3 py-2 flex flex-col gap-2 shrink-0">
                 <div className="flex justify-end">
                   <button onClick={() => setLightboxImage(null)} className="text-gray-900/60 hover:text-gray-900 text-sm">✕ Fermer</button>
                 </div>
