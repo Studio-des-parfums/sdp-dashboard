@@ -1,4 +1,7 @@
-const BASE_URL = (import.meta.env.VITE_LYLO_API_URL || 'https://lylo-back-production.up.railway.app').replace(/\/+$/, '')
+const BASE_URL = (
+  import.meta.env.VITE_LYLO_API_URL ||
+  (import.meta.env.DEV ? 'http://localhost:8000' : 'https://lylo-back-production.up.railway.app')
+).replace(/\/+$/, '')
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const url = `${BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`
@@ -88,4 +91,68 @@ export const lyloApi = {
     return apiFetchForm<{ logo_url: string | null }>('/branding/logo', formData)
   },
   deleteLogo: () => apiFetch<null>('/branding/logo', { method: 'DELETE' }),
+
+  // --- Analytics ---
+  getAnalyticsFormulaCounts: (params?: { group_by?: 'day' | 'month' | 'year'; date_from?: string; date_to?: string; nocache?: boolean }) => {
+    const q = new URLSearchParams()
+    if (params?.group_by) q.set('group_by', params.group_by)
+    if (params?.date_from) q.set('date_from', params.date_from)
+    if (params?.date_to) q.set('date_to', params.date_to)
+    if (params?.nocache) q.set('nocache', 'true')
+    const qs = q.toString()
+    return apiFetch<import('../types/lylo').LyloFormulaCountResponse>(`/api/analytics/formulas/count${qs ? `?${qs}` : ''}`)
+  },
+  getAnalyticsTopNotes: (params?: { limit?: number; category?: 'all' | 'top' | 'heart' | 'base'; date_from?: string; date_to?: string; nocache?: boolean }) => {
+    const q = new URLSearchParams()
+    if (params?.limit) q.set('limit', String(params.limit))
+    if (params?.category) q.set('category', params.category)
+    if (params?.date_from) q.set('date_from', params.date_from)
+    if (params?.date_to) q.set('date_to', params.date_to)
+    if (params?.nocache) q.set('nocache', 'true')
+    const qs = q.toString()
+    return apiFetch<import('../types/lylo').LyloTopNotesResponse>(`/api/analytics/notes/top${qs ? `?${qs}` : ''}`)
+  },
+  getAnalyticsTopProfiles: (params?: { limit?: number; date_from?: string; date_to?: string; nocache?: boolean }) => {
+    const q = new URLSearchParams()
+    if (params?.limit) q.set('limit', String(params.limit))
+    if (params?.date_from) q.set('date_from', params.date_from)
+    if (params?.date_to) q.set('date_to', params.date_to)
+    if (params?.nocache) q.set('nocache', 'true')
+    const qs = q.toString()
+    return apiFetch<import('../types/lylo').LyloProfilesResponse>(`/api/analytics/profiles/top${qs ? `?${qs}` : ''}`)
+  },
+  getAnalyticsLanguages: (params?: { date_from?: string; date_to?: string; nocache?: boolean }) => {
+    const q = new URLSearchParams()
+    if (params?.date_from) q.set('date_from', params.date_from)
+    if (params?.date_to) q.set('date_to', params.date_to)
+    if (params?.nocache) q.set('nocache', 'true')
+    const qs = q.toString()
+    return apiFetch<import('../types/lylo').LyloLanguagesResponse>(`/api/analytics/languages${qs ? `?${qs}` : ''}`)
+  },
+  getAnalyticsModes: (params?: { date_from?: string; date_to?: string; nocache?: boolean }) => {
+    const q = new URLSearchParams()
+    if (params?.date_from) q.set('date_from', params.date_from)
+    if (params?.date_to) q.set('date_to', params.date_to)
+    if (params?.nocache) q.set('nocache', 'true')
+    const qs = q.toString()
+    return apiFetch<import('../types/lylo').LyloModesResponse>(`/api/analytics/modes${qs ? `?${qs}` : ''}`)
+  },
+  getAnalyticsFormulaTypes: (params?: { date_from?: string; date_to?: string; nocache?: boolean }) => {
+    const q = new URLSearchParams()
+    if (params?.date_from) q.set('date_from', params.date_from)
+    if (params?.date_to) q.set('date_to', params.date_to)
+    if (params?.nocache) q.set('nocache', 'true')
+    const qs = q.toString()
+    return apiFetch<import('../types/lylo').LyloFormulaTypesResponse>(`/api/analytics/formula-types${qs ? `?${qs}` : ''}`)
+  },
+  getAnalyticsSummary: (params?: { date_from?: string; date_to?: string; nocache?: boolean }) => {
+    const q = new URLSearchParams()
+    if (params?.date_from) q.set('date_from', params.date_from)
+    if (params?.date_to) q.set('date_to', params.date_to)
+    if (params?.nocache) q.set('nocache', 'true')
+    const qs = q.toString()
+    return apiFetch<import('../types/lylo').LyloAnalyticsSummaryResponse>(`/api/analytics/summary${qs ? `?${qs}` : ''}`)
+  },
+  clearAnalyticsCache: () => apiFetch<{ status: string; message: string }>('/api/analytics/cache/clear', { method: 'POST' }),
 }
+
