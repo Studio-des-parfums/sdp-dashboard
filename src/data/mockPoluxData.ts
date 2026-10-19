@@ -10,8 +10,10 @@ export const mockPoluxUsers: PoluxUserRef[] = [
 
 export const mockPoluxTeams: PoluxTeam[] = [
   { id: 1, slug: 'informatique', name: 'Informatique', color: '#6366f1', member_ids: [1, 2, 3], is_official: true },
-  { id: 2, slug: 'marketing', name: 'Marketing', color: '#ec4899', member_ids: [4, 5], is_official: false },
+  { id: 2, slug: 'marketing', name: 'Marketing', color: '#f59e0b', member_ids: [4, 5], is_official: false },
   { id: 3, slug: 'support', name: 'Support', color: '#14b8a6', member_ids: [2, 5], is_official: false },
+  { id: 4, slug: 'design', name: 'Design', color: '#ec4899', member_ids: [4], is_official: true },
+  { id: 5, slug: 'logistique', name: 'Logistique', color: '#22c55e', member_ids: [3], is_official: true },
 ]
 
 function iso(daysFromNow: number): string {
