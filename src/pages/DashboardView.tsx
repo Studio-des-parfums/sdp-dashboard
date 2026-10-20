@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Activity, ChevronDown, LogOut } from 'lucide-react'
 import { api } from '../api/client'
 import { Sidebar } from '../components/Sidebar'
@@ -34,13 +34,25 @@ const LYLO_SECTIONS = new Set(['accueil', 'clients', 'equipe', 'formules', 'ques
 export function DashboardView() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { logout, user, sdpUser } = useAuth()
   const [dashboard, setDashboard] = useState<Dashboard | null>(null)
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [collapsed, setCollapsed] = useState(false)
-  const [activeSection, setActiveSection] = useState('overview')
+  const [activeSection, setActiveSectionState] = useState('overview')
+
+  // Garde la section active dans l'URL (?section=...) pour qu'un refresh ne retombe pas
+  // systématiquement sur l'accueil : on resynchronise state + query param ensemble.
+  const setActiveSection = useCallback((section: string) => {
+    setActiveSectionState(section)
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.set('section', section)
+      return next
+    }, { replace: true })
+  }, [setSearchParams])
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [openTicketsCount, setOpenTicketsCount] = useState(0)
 
@@ -100,10 +112,12 @@ export function DashboardView() {
           }
         }
         setDashboard(d)
-        setActiveSection(isHome ? 'overview' : d.sections[0]?.id || 'overview')
+        const urlSection = searchParams.get('section')
+        setActiveSectionState(isHome ? 'overview' : urlSection || d.sections[0]?.id || 'overview')
       })
       .catch(() => setError('Impossible de charger le dashboard'))
       .finally(() => setLoading(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, isHome, sdpUser?.role_name])
 
   // Une fois la liste des projets autorisés chargée, on vérifie que le projet demandé
