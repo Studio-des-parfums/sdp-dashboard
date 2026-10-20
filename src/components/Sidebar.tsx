@@ -36,6 +36,9 @@ interface SectionsMode {
     onAddClick: () => void
     addLabel: string
   }
+  projects?: Project[]
+  currentSlug?: string
+  onSwitchProject?: (slug: string) => void
 }
 
 type SidebarProps = ProjectsMode | SectionsMode
@@ -109,8 +112,9 @@ export function Sidebar(props: SidebarProps) {
     )
   }
 
-  const { sections, activeSection, onSectionChange, collapsed, mobileOpen, onCloseMobile, userMode, onOpenSettings, onLogout, badges, groupedSection } = props
+  const { sections, activeSection, onSectionChange, collapsed, mobileOpen, onCloseMobile, userMode, onOpenSettings, onLogout, badges, groupedSection, projects, currentSlug, onSwitchProject } = props
   const [groupOpen, setGroupOpen] = useState(true)
+  const [mobileProjectSelectOpen, setMobileProjectSelectOpen] = useState(false)
   const groupedIds = new Set(groupedSection?.sectionIds ?? [])
   const mainSections = sections.filter((s) => !groupedIds.has(s.id))
   const groupSections = sections.filter((s) => groupedIds.has(s.id))
@@ -142,6 +146,7 @@ export function Sidebar(props: SidebarProps) {
   }
 
   const isTextShown = !collapsed || mobileOpen
+  const currentProject = projects?.find((p) => p.slug === currentSlug)
 
   return (
     <>
@@ -208,6 +213,50 @@ export function Sidebar(props: SidebarProps) {
         </div>
 
         <div className="border-t border-gray-200 py-2">
+          {projects && projects.length > 0 && onSwitchProject && (
+            <div className="md:hidden px-3 py-1.5 mb-1">
+              <p className="text-[10px] uppercase tracking-wider text-gray-700 font-semibold mb-1 px-1">Projet</p>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setMobileProjectSelectOpen(!mobileProjectSelectOpen)}
+                  className="w-full flex items-center justify-between gap-2 bg-white border border-gray-200 hover:bg-gray-50 text-xs text-gray-800 px-3 py-2 rounded-lg transition-colors"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    {currentProject && (
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: currentProject.color }} />
+                    )}
+                    <span className="truncate">{currentProject?.name ?? 'Changer de projet...'}</span>
+                  </div>
+                  <ChevronDown size={14} className={`shrink-0 text-gray-500 transition-transform ${mobileProjectSelectOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {mobileProjectSelectOpen && (
+                  <div className="mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-30">
+                    {projects.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          setMobileProjectSelectOpen(false)
+                          onSwitchProject(p.slug)
+                          onCloseMobile?.()
+                        }}
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors ${p.slug === currentSlug ? 'text-indigo-600 bg-indigo-50 font-medium' : 'text-gray-700 hover:bg-gray-100'}`}
+                      >
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+                        <span className="truncate">{p.name}</span>
+                        {p.status === 'maintenance' && (
+                          <span className="ml-auto text-[10px] text-amber-600">Maint.</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {userMode && (
             <>
               <button

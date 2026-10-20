@@ -46,7 +46,7 @@ export function DashboardList() {
           >
             {collapsed ? '→' : '←'}
           </button>
-          <h1 className="text-sm font-semibold text-gray-900 ml-2 md:ml-4">Tableau de bord</h1>
+          <h1 className="hidden md:block text-sm font-semibold text-gray-900 ml-2 md:ml-4">Tableau de bord</h1>
         </div>
 
         <div className="p-4 sm:p-6">

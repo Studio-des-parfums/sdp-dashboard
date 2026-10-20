@@ -163,6 +163,9 @@ export function DashboardView() {
         onOpenSettings={() => setSettingsOpen(true)}
         onLogout={() => { logout(); navigate('/login') }}
         badges={isAdmin && openTicketsCount > 0 ? { tickets: openTicketsCount } : undefined}
+        projects={projects}
+        currentSlug={normalizedSlug}
+        onSwitchProject={switchProject}
         groupedSection={isPolux ? {
           label: 'Espaces',
           sectionIds: (dashboard?.sections ?? []).filter((s) => s.id.startsWith('team-') || s.id === 'leads').map((s) => s.id),
@@ -195,13 +198,13 @@ export function DashboardView() {
             <span className="hidden sm:inline">Retour</span>
           </button>
 
-          <div className="h-6 w-px bg-gray-200" />
+          <div className="hidden md:block h-6 w-px bg-gray-200" />
 
-          <span className="text-sm font-semibold text-gray-900 truncate">
+          <span className="hidden md:inline text-sm font-semibold text-gray-900 truncate">
             {isMarketplace ? 'SDP OCR' : 'Tableau de bord'}
           </span>
 
-          <div className="relative ml-auto">
+          <div className="hidden md:block relative ml-auto">
             <button
               onClick={() => setSelectOpen(!selectOpen)}
               className="flex items-center gap-2 bg-white hover:bg-gray-200 text-xs text-gray-600 px-2.5 sm:px-3 py-1.5 rounded-lg transition-colors max-w-[140px] sm:max-w-none"
@@ -235,12 +238,14 @@ export function DashboardView() {
             )}
           </div>
 
-          <NotificationsButton />
-          <MessagingButton />
+          <div className="flex items-center gap-2 md:gap-4 ml-auto md:ml-0">
+            <NotificationsButton />
+            <MessagingButton />
+          </div>
 
           <button
             onClick={() => { logout(); navigate('/login'); }}
-            className="text-gray-600 hover:text-red-700 transition-colors p-1"
+            className="hidden md:block text-gray-600 hover:text-red-700 transition-colors p-1"
             title="Déconnexion"
           >
             <LogOut size={16} />
