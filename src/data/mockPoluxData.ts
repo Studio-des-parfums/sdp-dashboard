@@ -1,4 +1,4 @@
-import type { PoluxAttachment, PoluxComment, PoluxLead, PoluxLeadInteraction, PoluxReminder, PoluxTask, PoluxTeam, PoluxUserRef } from '../types/polux'
+import type { PoluxAttachment, PoluxChecklistItem, PoluxComment, PoluxLead, PoluxLeadInteraction, PoluxReminder, PoluxTask, PoluxTeam, PoluxUserRef } from '../types/polux'
 
 export const mockPoluxUsers: PoluxUserRef[] = [
   { id: 1, first_name: 'Thomas', last_name: 'Martin', email: 'thomas@sdp.fr' },
@@ -36,62 +36,68 @@ export const mockPoluxComments: PoluxComment[] = [
   { id: 2, task_id: 2, user_id: 2, body: 'Oui, je mets à jour les specs demain.', mentioned_user_ids: [], created_at: iso(-1) },
 ]
 
+export const mockPoluxChecklistItems: PoluxChecklistItem[] = [
+  { id: 1, task_id: 1, label: 'Reproduire le bug en local', done: true, created_at: iso(-6) },
+  { id: 2, task_id: 1, label: 'Identifier la requête fautive', done: true, created_at: iso(-6) },
+  { id: 3, task_id: 1, label: 'Corriger et déployer', done: false, created_at: iso(-6) },
+]
+
 export const mockPoluxTasks: PoluxTask[] = [
   {
     id: 1, project_name: 'Refonte Aglae', team_id: 1, title: 'Corriger le bug d\'affichage des commandes',
     description: 'Les commandes annulées restent visibles dans la liste active.',
     assigned_to_ids: [2], created_by: 1, owner_id: null, priority: 'urgente', color: '#ef4444', status: 'en_cours',
     start_date: iso(-10), deadline: iso(-1), created_at: iso(-7),
-    reminders: mockPoluxReminders.filter(r => r.task_id === 1), attachments: [], comments: [],
+    reminders: mockPoluxReminders.filter(r => r.task_id === 1), attachments: [], comments: [], checklist: mockPoluxChecklistItems.filter(c => c.task_id === 1),
   },
   {
     id: 2, project_name: 'Refonte Aglae', team_id: 1, title: 'Maquette de la nouvelle page produit',
     description: 'Proposer 2 variantes pour la fiche produit marketplace.',
     assigned_to_ids: [2], created_by: 1, owner_id: null, priority: 'haute', color: '#f59e0b', status: 'en_revision',
     start_date: iso(-5), deadline: iso(3), created_at: iso(-5),
-    reminders: [], attachments: mockPoluxAttachments.filter(a => a.task_id === 2), comments: mockPoluxComments.filter(c => c.task_id === 2),
+    reminders: [], attachments: mockPoluxAttachments.filter(a => a.task_id === 2), comments: mockPoluxComments.filter(c => c.task_id === 2), checklist: [],
   },
   {
     id: 3, project_name: 'Appli Ninno v2', team_id: 1, title: 'Intégrer le SDK de notifications push',
     description: '',
     assigned_to_ids: [3], created_by: 1, owner_id: null, priority: 'moyenne', color: null, status: 'a_faire',
     start_date: null, deadline: iso(5), created_at: iso(-2),
-    reminders: mockPoluxReminders.filter(r => r.task_id === 3), attachments: [], comments: [],
+    reminders: mockPoluxReminders.filter(r => r.task_id === 3), attachments: [], comments: [], checklist: [],
   },
   {
     id: 4, project_name: 'Appli Ninno v2', team_id: 1, title: 'Écrire les tests E2E du parcours de connexion',
     description: '',
     assigned_to_ids: [], created_by: 1, owner_id: null, priority: 'basse', color: null, status: 'a_faire',
     start_date: null, deadline: null, created_at: iso(-1),
-    reminders: [], attachments: [], comments: [],
+    reminders: [], attachments: [], comments: [], checklist: [],
   },
   {
     id: 5, project_name: 'Lancement campagne Q4', team_id: 2, title: 'Rédiger les visuels réseaux sociaux',
     description: 'Visuels pour Instagram et LinkedIn, thème fêtes de fin d\'année.',
     assigned_to_ids: [4], created_by: 4, owner_id: null, priority: 'haute', color: '#6366f1', status: 'en_cours',
     start_date: iso(-4), deadline: iso(1), created_at: iso(-4),
-    reminders: [], attachments: [], comments: [],
+    reminders: [], attachments: [], comments: [], checklist: [],
   },
   {
     id: 6, project_name: 'Lancement campagne Q4', team_id: 2, title: 'Planifier le calendrier d\'envoi des emails',
     description: '',
     assigned_to_ids: [5], created_by: 4, owner_id: null, priority: 'moyenne', color: '#10b981', status: 'termine',
     start_date: iso(-10), deadline: iso(-5), created_at: iso(-10),
-    reminders: [], attachments: [], comments: [],
+    reminders: [], attachments: [], comments: [], checklist: [],
   },
   {
     id: 7, project_name: 'Base de connaissance', team_id: 3, title: 'Mettre à jour la FAQ sur les délais de livraison',
     description: '',
     assigned_to_ids: [2], created_by: 5, owner_id: null, priority: 'basse', color: null, status: 'a_faire',
     start_date: null, deadline: iso(10), created_at: iso(-1),
-    reminders: [], attachments: [], comments: [],
+    reminders: [], attachments: [], comments: [], checklist: [],
   },
   {
     id: 8, project_name: 'Base de connaissance', team_id: 3, title: 'Répondre aux tickets en attente (>48h)',
     description: '',
     assigned_to_ids: [2], created_by: 5, owner_id: null, priority: 'urgente', color: '#ef4444', status: 'en_cours',
     start_date: null, deadline: iso(0), created_at: iso(-1),
-    reminders: [], attachments: [], comments: [],
+    reminders: [], attachments: [], comments: [], checklist: [],
   },
 ]
 

@@ -1,4 +1,4 @@
-import type { PoluxComment, PoluxLead, PoluxLeadInteraction, PoluxTask, PoluxTeam, PoluxUserRef } from '../types/polux'
+import type { PoluxChecklistItem, PoluxComment, PoluxLead, PoluxLeadInteraction, PoluxTask, PoluxTeam, PoluxUserRef } from '../types/polux'
 import {
   mockPoluxComments,
   mockPoluxLeads,
@@ -67,6 +67,18 @@ let nextTeamId = teams.length + 1
 let nextNotificationId = 1
 let nextLeadId = leads.length + 1
 let nextLeadInteractionId = leads.reduce((max, l) => Math.max(max, ...l.interactions.map((i) => i.id)), 0) + 1
+let nextChecklistItemId = tasks.reduce((max, t) => Math.max(max, ...t.checklist.map((c) => c.id), 0), 0) + 1
+
+// Si tous les items de la checklist sont cochés, la tâche passe en 'termine' ; si on en
+// décoche un sur une tâche déjà terminée, elle repasse en 'en_cours'. Même logique que
+// polux-back/src/routes/tasks.ts côté serveur.
+function syncTaskStatusWithChecklist(task: PoluxTask): PoluxTask {
+  if (task.checklist.length === 0) return task
+  const allDone = task.checklist.every((c) => c.done)
+  if (allDone && task.status !== 'termine') return { ...task, status: 'termine' }
+  if (!allDone && task.status === 'termine') return { ...task, status: 'en_cours' }
+  return task
+}
 
 export interface TaskPatch {
   title?: string
@@ -244,6 +256,7 @@ export const poluxApi = {
         reminders: [],
         attachments: [],
         comments: [],
+        checklist: [],
       }
       tasks = [...tasks, task]
       return delay(task)
@@ -273,6 +286,7 @@ export const poluxApi = {
         reminders: [],
         attachments: [],
         comments: [],
+        checklist: [],
       }
       tasks = [...tasks, task]
       return delay(task)
@@ -372,6 +386,54 @@ export const poluxApi = {
       return delay(undefined)
     }
     return request(`/attachments/${attachmentId}`, { method: 'DELETE' })
+  },
+
+  async addChecklistItem(taskId: number, label: string): Promise<PoluxTask> {
+    if (USE_MOCK) {
+      const index = tasks.findIndex((t) => t.id === taskId)
+      if (index === -1) throw new Error('Tâche introuvable')
+      const item: PoluxChecklistItem = { id: nextChecklistItemId++, task_id: taskId, label, done: false, created_at: new Date().toISOString() }
+      const updated = syncTaskStatusWithChecklist({ ...tasks[index], checklist: [...tasks[index].checklist, item] })
+      tasks = [...tasks.slice(0, index), updated, ...tasks.slice(index + 1)]
+      return delay(updated)
+    }
+    await request(`/tasks/${taskId}/checklist`, { method: 'POST', body: JSON.stringify({ label }) })
+    const freshTasks = await poluxApi.getTasks()
+    const updated = freshTasks.find((t) => t.id === taskId)
+    if (!updated) throw new Error('Tâche introuvable après ajout')
+    return updated
+  },
+
+  async toggleChecklistItem(taskId: number, itemId: number, done: boolean): Promise<PoluxTask> {
+    if (USE_MOCK) {
+      const index = tasks.findIndex((t) => t.id === taskId)
+      if (index === -1) throw new Error('Tâche introuvable')
+      const checklist = tasks[index].checklist.map((c) => (c.id === itemId ? { ...c, done } : c))
+      const updated = syncTaskStatusWithChecklist({ ...tasks[index], checklist })
+      tasks = [...tasks.slice(0, index), updated, ...tasks.slice(index + 1)]
+      return delay(updated)
+    }
+    await request(`/tasks/${taskId}/checklist/${itemId}`, { method: 'PUT', body: JSON.stringify({ done }) })
+    const freshTasks = await poluxApi.getTasks()
+    const updated = freshTasks.find((t) => t.id === taskId)
+    if (!updated) throw new Error('Tâche introuvable après mise à jour')
+    return updated
+  },
+
+  async deleteChecklistItem(taskId: number, itemId: number): Promise<PoluxTask> {
+    if (USE_MOCK) {
+      const index = tasks.findIndex((t) => t.id === taskId)
+      if (index === -1) throw new Error('Tâche introuvable')
+      const checklist = tasks[index].checklist.filter((c) => c.id !== itemId)
+      const updated = syncTaskStatusWithChecklist({ ...tasks[index], checklist })
+      tasks = [...tasks.slice(0, index), updated, ...tasks.slice(index + 1)]
+      return delay(updated)
+    }
+    await request(`/tasks/${taskId}/checklist/${itemId}`, { method: 'DELETE' })
+    const freshTasks = await poluxApi.getTasks()
+    const updated = freshTasks.find((t) => t.id === taskId)
+    if (!updated) throw new Error('Tâche introuvable après suppression')
+    return updated
   },
 
   async getLeads(): Promise<PoluxLead[]> {

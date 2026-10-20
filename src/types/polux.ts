@@ -48,6 +48,14 @@ export interface PoluxComment {
   created_at: string
 }
 
+export interface PoluxChecklistItem {
+  id: number
+  task_id: number
+  label: string
+  done: boolean
+  created_at: string
+}
+
 export interface PoluxTask {
   id: number
   project_name: string | null
@@ -68,6 +76,7 @@ export interface PoluxTask {
   reminders: PoluxReminder[]
   attachments: PoluxAttachment[]
   comments: PoluxComment[]
+  checklist: PoluxChecklistItem[]
 }
 
 /** Type d'appelant — conditionne l'affichage du champ société sur la fiche lead. */

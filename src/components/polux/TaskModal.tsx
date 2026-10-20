@@ -21,6 +21,7 @@ interface TaskModalProps {
 
 export function TaskModal({ task, users, onClose, onUpdated, onDeleted }: TaskModalProps) {
   const [form, setForm] = useState<TaskPatch>({})
+  const [checklistLabel, setChecklistLabel] = useState('')
   const [commentBody, setCommentBody] = useState('')
   const [mentionedUserIds, setMentionedUserIds] = useState<number[]>([])
   const [isBusy, setIsBusy] = useState(false)
@@ -42,6 +43,7 @@ export function TaskModal({ task, users, onClose, onUpdated, onDeleted }: TaskMo
     })
     setCommentBody('')
     setMentionedUserIds([])
+    setChecklistLabel('')
     setError(null)
   }, [task])
 
@@ -118,6 +120,48 @@ export function TaskModal({ task, users, onClose, onUpdated, onDeleted }: TaskMo
       await poluxApi.deleteAttachment(attachmentId)
       const refreshedTask: PoluxTask = { ...task!, attachments: task!.attachments.filter((a) => a.id !== attachmentId) }
       onUpdated(refreshedTask)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur inconnue')
+    } finally {
+      setIsBusy(false)
+    }
+  }
+
+  async function handleAddChecklistItem() {
+    const label = checklistLabel.trim()
+    if (!label) return
+    setIsBusy(true)
+    setError(null)
+    try {
+      const updated = await poluxApi.addChecklistItem(task!.id, label)
+      onUpdated(updated)
+      setChecklistLabel('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur inconnue')
+    } finally {
+      setIsBusy(false)
+    }
+  }
+
+  async function handleToggleChecklistItem(itemId: number, done: boolean) {
+    setIsBusy(true)
+    setError(null)
+    try {
+      const updated = await poluxApi.toggleChecklistItem(task!.id, itemId, done)
+      onUpdated(updated)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur inconnue')
+    } finally {
+      setIsBusy(false)
+    }
+  }
+
+  async function handleDeleteChecklistItem(itemId: number) {
+    setIsBusy(true)
+    setError(null)
+    try {
+      const updated = await poluxApi.deleteChecklistItem(task!.id, itemId)
+      onUpdated(updated)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur inconnue')
     } finally {
@@ -234,6 +278,45 @@ export function TaskModal({ task, users, onClose, onUpdated, onDeleted }: TaskMo
               onChange={(e) => setForm((s) => ({ ...s, deadline: e.target.value || null }))}
               onBlur={() => savePatch({ deadline: form.deadline ? new Date(form.deadline).toISOString() : null })}
             />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Checklist{task.checklist.length > 0 && ` (${task.checklist.filter((c) => c.done).length}/${task.checklist.length})`}</Label>
+          <div className="space-y-1">
+            {task.checklist.map((c) => (
+              <div key={c.id} className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={c.done}
+                  onChange={(e) => handleToggleChecklistItem(c.id, e.target.checked)}
+                  disabled={isBusy}
+                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className={`flex-1 text-sm ${c.done ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{c.label}</span>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteChecklistItem(c.id)}
+                  disabled={isBusy}
+                  className="text-xs text-red-700 hover:text-red-600 disabled:opacity-50"
+                >
+                  Supprimer
+                </button>
+              </div>
+            ))}
+            {task.checklist.length === 0 && <p className="text-sm text-gray-600">Aucune sous-tâche.</p>}
+          </div>
+          {task.checklist.length > 0 && (
+            <p className="text-xs text-gray-500">Une fois toutes les sous-tâches validées, la tâche passe automatiquement en "Terminé".</p>
+          )}
+          <div className="flex gap-2">
+            <Input
+              value={checklistLabel}
+              onChange={(e) => setChecklistLabel(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddChecklistItem())}
+              placeholder="Ajouter une sous-tâche..."
+            />
+            <Button variant="primary" type="button" onClick={handleAddChecklistItem} disabled={isBusy || !checklistLabel.trim()}>Ajouter</Button>
           </div>
         </div>
 
