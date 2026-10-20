@@ -37,6 +37,7 @@ interface FormulaDetailsPageProps {
   formulaId: number
   customerId: number
   onBack: () => void
+  onOpenFormula?: (formulaId: number) => void
 }
 
 function parseQuantity(quantity: string | null | undefined): { value: number; valid: boolean } {
@@ -101,13 +102,14 @@ function getFitStyle(
   }
 }
 
-export default function FormulaDetailsPage({ formulaId, customerId, onBack }: FormulaDetailsPageProps) {
+export default function FormulaDetailsPage({ formulaId, customerId, onBack, onOpenFormula }: FormulaDetailsPageProps) {
   const { showError, showSuccess } = useToast()
   const [formula, setFormula] = useState<Formula | null>(null)
   const [customerName, setCustomerName] = useState('')
   const [loading, setLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isDuplicating, setIsDuplicating] = useState(false)
   const [editingData, setEditingData] = useState<Formula | null>(null)
   const [lightboxImage, setLightboxImage] = useState<string | null>(null)
   const [previewRotation, setPreviewRotation] = useState(0)
@@ -188,6 +190,30 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
       showError('Erreur', 'Impossible de générer la fiche PDF')
     } finally {
       setGeneratingPdf(false)
+    }
+  }
+
+  const handleDuplicate = async () => {
+    if (!formula || isDuplicating) return
+    setIsDuplicating(true)
+    try {
+      const duplicated = await formulasApi.duplicate(formula.id)
+      showSuccess(`Formule dupliquée avec succès : ${duplicated.reference || `#${duplicated.id}`}`)
+      if (onOpenFormula) {
+        onOpenFormula(duplicated.id)
+      } else {
+        const f: Formula = {
+          ...duplicated,
+          booster_notes: duplicated.booster_notes || [],
+          options: duplicated.options || [],
+        }
+        setFormula(f)
+        setEditingData(JSON.parse(JSON.stringify(f)))
+      }
+    } catch {
+      showError('Erreur', 'Impossible de dupliquer la formule')
+    } finally {
+      setIsDuplicating(false)
     }
   }
 
@@ -306,7 +332,17 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
           )}
         </div>
         {!isEditing && (
-          <Button size="sm" onClick={() => setIsEditing(true)} className="ml-auto">✏️ Modifier</Button>
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleDuplicate}
+              disabled={isDuplicating}
+            >
+              {isDuplicating ? '⏳ Duplication...' : '📑 Dupliquer'}
+            </Button>
+            <Button size="sm" onClick={() => setIsEditing(true)}>✏️ Modifier</Button>
+          </div>
         )}
       </div>
 
