@@ -27,6 +27,7 @@ export default function PoluxLeadsPage({ onCreateLead, canManageAccess }: PoluxL
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('tous')
   const [contactFilter, setContactFilter] = useState<ContactFilter>('tous')
   const [assigneeFilter, setAssigneeFilter] = useState<number | 'tous'>('tous')
+  const [projectFilter, setProjectFilter] = useState<string>('tous')
   const [search, setSearch] = useState('')
   const [onlyFollowUpDue, setOnlyFollowUpDue] = useState(false)
 
@@ -49,12 +50,18 @@ export default function PoluxLeadsPage({ onCreateLead, canManageAccess }: PoluxL
     setSelectedLead(null)
   }
 
+  const projectOptions = useMemo(
+    () => Array.from(new Set(leads.filter((l) => l.project_name).map((l) => l.project_name))).sort((a, b) => a.localeCompare(b)),
+    [leads]
+  )
+
   const filteredLeads = useMemo(() => {
     const term = search.trim().toLowerCase()
     return leads
       .filter((l) => statusFilter === 'tous' || l.status === statusFilter)
       .filter((l) => contactFilter === 'tous' || l.contact_type === contactFilter)
       .filter((l) => assigneeFilter === 'tous' || l.assigned_to_id === assigneeFilter)
+      .filter((l) => projectFilter === 'tous' || l.project_name === projectFilter)
       .filter((l) => !onlyFollowUpDue || isLeadFollowUpDue(l.next_follow_up_at, l.status))
       .filter((l) => {
         if (!term) return true
@@ -63,7 +70,7 @@ export default function PoluxLeadsPage({ onCreateLead, canManageAccess }: PoluxL
           .some((v) => v!.toLowerCase().includes(term))
       })
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-  }, [leads, statusFilter, contactFilter, assigneeFilter, onlyFollowUpDue, search])
+  }, [leads, statusFilter, contactFilter, assigneeFilter, projectFilter, onlyFollowUpDue, search])
 
   const followUpDueCount = useMemo(() => leads.filter((l) => isLeadFollowUpDue(l.next_follow_up_at, l.status)).length, [leads])
 
@@ -131,6 +138,14 @@ export default function PoluxLeadsPage({ onCreateLead, canManageAccess }: PoluxL
         >
           <option value="tous">Tous les assignés</option>
           {users.map((u) => <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
+        </select>
+        <select
+          value={projectFilter}
+          onChange={(e) => setProjectFilter(e.target.value)}
+          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+        >
+          <option value="tous">Tous les projets</option>
+          {projectOptions.map((p) => <option key={p} value={p}>{p}</option>)}
         </select>
         <label className="flex items-center gap-2 text-sm text-gray-700">
           <input type="checkbox" checked={onlyFollowUpDue} onChange={(e) => setOnlyFollowUpDue(e.target.checked)} />
