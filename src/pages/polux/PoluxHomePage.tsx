@@ -24,6 +24,7 @@ export default function PoluxHomePage({ onOpenTeam, isAdmin = false }: PoluxHome
   const [completedOpen, setCompletedOpen] = useState(false)
   const [createPersonalOpen, setCreatePersonalOpen] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [projectFilter, setProjectFilter] = useState('tous')
 
   useEffect(() => {
     Promise.all([poluxApi.getTeams(), poluxApi.getTasks(), poluxApi.getUsers()])
@@ -37,6 +38,14 @@ export default function PoluxHomePage({ onOpenTeam, isAdmin = false }: PoluxHome
     [tasks, currentUser]
   )
   const myActiveTasks = useMemo(() => myTasks.filter((t) => t.status !== 'termine'), [myTasks])
+  const myProjects = useMemo(
+    () => Array.from(new Set(myActiveTasks.filter((t) => t.project_name).map((t) => t.project_name as string))),
+    [myActiveTasks]
+  )
+  const visibleMyTasks = useMemo(
+    () => projectFilter === 'tous' ? myActiveTasks : myActiveTasks.filter((t) => t.project_name === projectFilter),
+    [myActiveTasks, projectFilter]
+  )
   const activeProjects = useMemo(
     () => Array.from(new Set(tasks.filter((t) => t.status !== 'termine' && t.project_name).map((t) => t.project_name as string))),
     [tasks]
@@ -182,7 +191,17 @@ export default function PoluxHomePage({ onOpenTeam, isAdmin = false }: PoluxHome
             </Button>
           </div>
         </div>
-        <TaskListView tasks={myActiveTasks} users={users} teams={teams} showProjectColumn showTeamColumn onOpenTask={setSelectedTask} />
+        {myProjects.length > 0 && (
+          <select
+            value={projectFilter}
+            onChange={(e) => setProjectFilter(e.target.value)}
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+          >
+            <option value="tous">Tous les projets</option>
+            {myProjects.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+        )}
+        <TaskListView tasks={visibleMyTasks} users={users} teams={teams} showProjectColumn showTeamColumn onOpenTask={setSelectedTask} />
       </div>
 
       <TaskModal task={selectedTask} users={users} existingProjects={activeProjects} onClose={() => setSelectedTask(null)} onUpdated={handleUpdated} onDeleted={handleDeleted} />

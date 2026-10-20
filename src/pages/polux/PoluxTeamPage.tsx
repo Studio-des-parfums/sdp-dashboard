@@ -27,6 +27,7 @@ export default function PoluxTeamPage({ teamSlug, isAdmin = false, onDeleted }: 
   const [isDeleting, setIsDeleting] = useState(false)
   const [extendDate, setExtendDate] = useState(defaultExtendedDate())
   const [isExtending, setIsExtending] = useState(false)
+  const [projectFilter, setProjectFilter] = useState('tous')
 
   useEffect(() => {
     Promise.all([poluxApi.getTeams(), poluxApi.getTasks(), poluxApi.getUsers()])
@@ -44,6 +45,10 @@ export default function PoluxTeamPage({ teamSlug, isAdmin = false, onDeleted }: 
   const activeProjects = useMemo(
     () => Array.from(new Set(teamTasks.filter((t) => t.status !== 'termine' && t.project_name).map((t) => t.project_name as string))),
     [teamTasks]
+  )
+  const visibleTasks = useMemo(
+    () => projectFilter === 'tous' ? activeTeamTasks : activeTeamTasks.filter((t) => t.project_name === projectFilter),
+    [activeTeamTasks, projectFilter]
   )
 
   function handleMemberAdded(userId: number) {
@@ -164,7 +169,20 @@ export default function PoluxTeamPage({ teamSlug, isAdmin = false, onDeleted }: 
         </div>
       )}
 
-      <TaskListView tasks={activeTeamTasks} users={users} showProjectColumn onOpenTask={setSelectedTask} />
+      {activeProjects.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gray-200 bg-gray-100 p-4">
+          <select
+            value={projectFilter}
+            onChange={(e) => setProjectFilter(e.target.value)}
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+          >
+            <option value="tous">Tous les projets</option>
+            {activeProjects.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+        </div>
+      )}
+
+      <TaskListView tasks={visibleTasks} users={users} showProjectColumn onOpenTask={setSelectedTask} />
 
       <CreateTaskModal
         open={createOpen}
