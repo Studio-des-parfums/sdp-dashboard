@@ -83,10 +83,10 @@ export default function PoluxHomePage({ onOpenTeam, isAdmin = false }: PoluxHome
     setTasks((prev) => prev.filter((t) => t.id !== taskId))
   }
 
-  if (loading) return <div className="p-6 text-sm text-gray-500">Chargement...</div>
+  if (loading) return <div className="text-sm text-gray-500">Chargement...</div>
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <div className="rounded-xl border border-gray-200 bg-gray-100 p-6">
         <h2 className="text-2xl font-bold text-gray-900">
           {currentUser ? `Bonjour ${currentUser.first_name} 👋` : 'Mon espace'}

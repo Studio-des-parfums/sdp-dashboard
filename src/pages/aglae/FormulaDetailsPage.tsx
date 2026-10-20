@@ -301,7 +301,7 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack, onOp
 
   if (loading) {
     return (
-      <div className="animate-pulse space-y-4 p-6">
+      <div className="animate-pulse space-y-4">
         <div className="h-8 bg-gray-200 rounded w-48" />
         <div className="h-64 bg-gray-200 rounded-xl" />
       </div>
@@ -318,21 +318,23 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack, onOp
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center gap-3">
-        <button onClick={onBack} className="text-gray-500 hover:text-gray-900 transition-colors text-lg">←</button>
-        <div>
-          <h1 className="text-lg font-bold text-gray-900">{formula.reference || `Formule #${formula.id}`}</h1>
-          <p className="text-xs text-gray-600">Nom du parfum : {formula.perfume_name || 'Non renseigné'}</p>
-          {customerName && (
-            <p className="text-xs text-gray-600">Client : {customerName}</p>
-          )}
-          {formula.atelier_name && (
-            <p className="text-xs text-gray-600">Atelier : {formula.atelier_name}</p>
-          )}
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <button onClick={onBack} className="text-gray-500 hover:text-gray-900 transition-colors text-lg p-1">←</button>
+          <div className="min-w-0">
+            <h1 className="text-lg font-bold text-gray-900 truncate">{formula.reference || `Formule #${formula.id}`}</h1>
+            <p className="text-xs text-gray-600 truncate">Nom du parfum : {formula.perfume_name || 'Non renseigné'}</p>
+            {customerName && (
+              <p className="text-xs text-gray-600 truncate">Client : {customerName}</p>
+            )}
+            {formula.atelier_name && (
+              <p className="text-xs text-gray-600 truncate">Atelier : {formula.atelier_name}</p>
+            )}
+          </div>
         </div>
         {!isEditing && (
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
             <Button
               size="sm"
               variant="secondary"
@@ -347,12 +349,12 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack, onOp
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-gray-100 border border-gray-200 rounded-xl p-6">
+        <div className="bg-gray-100 border border-gray-200 rounded-xl p-4 sm:p-6">
           <h2 className="text-sm font-semibold text-gray-900 mb-4">🧪 Composition de la formule</h2>
 
           {!isEditing ? (
             <>
-              <div className={`grid gap-4 ${hasBoosterNotes ? 'grid-cols-4' : 'grid-cols-3'}`}>
+              <div className={`grid gap-4 grid-cols-1 sm:grid-cols-2 ${hasBoosterNotes ? 'xl:grid-cols-4' : 'xl:grid-cols-3'}`}>
                 {(['top_notes', 'heart_notes', 'base_notes'] as const).map((noteType, ti) => {
                   const stats = [topStats, heartStats, baseStats][ti]
                   const notes = displayData?.[noteType] || []
@@ -547,7 +549,7 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack, onOp
         </div>
 
         <div className="space-y-6">
-          <div className="bg-gray-100 border border-gray-200 rounded-xl p-6">
+          <div className="bg-gray-100 border border-gray-200 rounded-xl p-4 sm:p-6">
             <h2 className="text-sm font-semibold text-gray-900 mb-4">🖼 Document associé</h2>
             {formula.file_id ? (
               <div>

@@ -75,7 +75,7 @@ export default function PoluxLeadFormPage({ onCreated, onCancel }: PoluxLeadForm
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <div className="rounded-xl border border-gray-200 bg-gray-100 p-6">
         <h2 className="text-xl font-semibold text-gray-900">Nouveau lead / prospect</h2>
         <p className="mt-1 text-sm text-gray-500">Enregistrer les informations recueillies pendant l'appel.</p>

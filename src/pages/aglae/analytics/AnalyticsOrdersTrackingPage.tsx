@@ -119,7 +119,7 @@ export const AnalyticsOrdersTrackingPage: React.FC = () => {
     orders: Order[],
     statusActions: { label: string; status: string; color: string }[]
   ) => (
-    <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-xs">
+    <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 shadow-xs">
       <h2 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
         {icon}
         {title} ({orders.length})
@@ -128,7 +128,7 @@ export const AnalyticsOrdersTrackingPage: React.FC = () => {
         <p className="text-sm text-gray-500 text-center py-6">Aucune commande</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="w-full min-w-[420px] text-xs">
             <thead>
               <tr className="border-b border-gray-200 text-gray-500 uppercase tracking-wider text-[11px]">
                 <th className="text-left py-2.5 px-3">Client</th>
@@ -185,7 +185,7 @@ export const AnalyticsOrdersTrackingPage: React.FC = () => {
 
       {/* Client Distribution & Top Customers */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-xs">
+        <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 shadow-xs">
           <h2 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <Users size={16} className="text-indigo-600" />
             Répartition des types de clients
@@ -238,7 +238,7 @@ export const AnalyticsOrdersTrackingPage: React.FC = () => {
           )}
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-xs">
+        <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 shadow-xs">
           <h2 className="text-sm font-semibold text-gray-900 mb-4">Top clients par dépenses</h2>
           {topCustomers.length === 0 ? (
             <p className="text-sm text-gray-500 text-center py-12">Aucune donnée</p>

@@ -80,10 +80,10 @@ export default function PoluxLeadsPage({ onCreateLead, canManageAccess }: PoluxL
     return u ? `${u.first_name} ${u.last_name}` : 'Non assigné'
   }
 
-  if (loading) return <div className="p-6 text-sm text-gray-500">Chargement...</div>
+  if (loading) return <div className="text-sm text-gray-500">Chargement...</div>
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <div className="rounded-xl border border-gray-200 bg-gray-100 p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>

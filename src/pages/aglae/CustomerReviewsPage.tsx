@@ -255,12 +255,12 @@ export default function CustomerReviewsPage({ onBack }: { onBack: () => void }) 
   const totalPages = Math.ceil(totalReviews / pageSize)
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="text-gray-500 hover:text-gray-900 transition-colors text-lg"
+            className="text-gray-500 hover:text-gray-900 transition-colors text-lg p-1"
             title="Retour à la liste des clients"
           >
             ←
@@ -386,9 +386,9 @@ export default function CustomerReviewsPage({ onBack }: { onBack: () => void }) 
           </div>
 
           {totalPages > 1 && (
-            <div className="flex items-center justify-between text-xs text-gray-500">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-500">
               <span>Page {currentPage} sur {totalPages} · {totalReviews} clients en attente</span>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 flex-wrap justify-center">
                 <button
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                   disabled={currentPage === 1}

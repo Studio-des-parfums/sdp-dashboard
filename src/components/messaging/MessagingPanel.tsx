@@ -32,16 +32,16 @@ export function MessagingPanel() {
       {/* Overlay léger pour capter le clic à l'extérieur et tout refermer */}
       <div className="fixed inset-0 z-40" onClick={handleClosePanel} />
       <div
-        className={`fixed top-0 right-0 h-full z-50 flex bg-white border-l border-gray-200 shadow-2xl transition-all duration-200 ${
-          activeConversationUserId ? 'w-[640px]' : 'w-[340px]'
+        className={`fixed top-0 right-0 h-full z-50 flex bg-white border-l border-gray-200 shadow-2xl transition-all duration-200 max-w-full ${
+          activeConversationUserId ? 'w-full sm:w-[640px]' : 'w-full sm:w-[340px]'
         }`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="w-[340px] shrink-0 border-r border-gray-200 h-full">
+        <div className={`${activeConversationUserId ? 'hidden sm:block' : 'w-full'} sm:w-[340px] shrink-0 border-r border-gray-200 h-full`}>
           <ConversationList onSelect={handleSelect} onClose={handleClosePanel} />
         </div>
         {activeConversationUserId && (
-          <div className="flex-1 h-full min-w-0">
+          <div className="flex-1 h-full min-w-0 w-full">
             <ConversationThread
               userId={activeConversationUserId}
               name={activeName || '...'}

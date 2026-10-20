@@ -98,13 +98,13 @@ export default function PoluxTeamPage({ teamSlug, isAdmin = false, onDeleted }: 
     }
   }
 
-  if (loading) return <div className="p-6 text-sm text-gray-500">Chargement...</div>
-  if (!team) return <div className="p-6 text-sm text-gray-500">Équipe introuvable.</div>
+  if (loading) return <div className="text-sm text-gray-500">Chargement...</div>
+  if (!team) return <div className="text-sm text-gray-500">Équipe introuvable.</div>
 
   const isExpired = !team.is_official && !!team.end_date && new Date(team.end_date).getTime() < Date.now()
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <div className="rounded-xl border border-gray-200 bg-gray-100 p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>

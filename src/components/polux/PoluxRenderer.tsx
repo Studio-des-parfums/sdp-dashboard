@@ -29,5 +29,5 @@ export default function PoluxRenderer({ section, onTeamDeleted, onSectionChange,
     const teamSlug = section.slice(TEAM_SECTION_PREFIX.length)
     return <PoluxTeamPage teamSlug={teamSlug} isAdmin={!!isAdmin} onDeleted={() => onTeamDeleted?.(teamSlug)} />
   }
-  return <div className="text-sm text-gray-500 p-6">Section inconnue</div>
+  return <div className="text-sm text-gray-500">Section inconnue</div>
 }

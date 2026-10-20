@@ -150,7 +150,7 @@ export default function LyloFormulesPage() {
   const needsEmail = !resolvedEmail
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <div className="rounded-xl border border-gray-200 bg-gray-100 p-6">
         <div>
           <h2 className="text-xl font-semibold text-gray-900">Formules générées</h2>

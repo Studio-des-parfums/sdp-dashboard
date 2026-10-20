@@ -124,20 +124,18 @@ export default function OrderDetailsPage({ orderId, onBack }: { orderId: number;
 
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-48" />
-          <div className="h-4 bg-gray-200 rounded w-72" />
-          <div className="h-4 bg-gray-200 rounded w-96" />
-          <div className="h-48 bg-gray-200 rounded-xl" />
-        </div>
+      <div className="animate-pulse space-y-4">
+        <div className="h-8 bg-gray-200 rounded w-48" />
+        <div className="h-4 bg-gray-200 rounded w-72" />
+        <div className="h-4 bg-gray-200 rounded w-96" />
+        <div className="h-48 bg-gray-200 rounded-xl" />
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="p-6">
+      <div>
         <button onClick={onBack} className="text-gray-500 hover:text-gray-900 text-sm mb-4 flex items-center gap-1">◀ Back</button>
         <div className="flex items-center justify-center h-64">
           <p className="text-red-700 text-sm">{error}</p>
@@ -149,11 +147,11 @@ export default function OrderDetailsPage({ orderId, onBack }: { orderId: number;
   if (!order) return null
 
   return (
-    <div className="p-6">
+    <div>
       <button onClick={onBack} className="text-gray-500 hover:text-gray-900 text-sm mb-4 flex items-center gap-1">◀ Back to Orders</button>
 
-      <div className="bg-gray-100 border border-gray-200 rounded-xl p-5 mb-6">
-        <div className="flex items-start justify-between mb-4">
+      <div className="bg-gray-100 border border-gray-200 rounded-xl p-4 sm:p-5 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4">
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-lg font-bold text-gray-900">Order #{order.id}</h1>
@@ -161,13 +159,13 @@ export default function OrderDetailsPage({ orderId, onBack }: { orderId: number;
             </div>
             <p className="text-sm text-gray-500 mt-1">{order.customer_name || `Customer #${order.customer_id}`}</p>
           </div>
-          <div className="text-right text-xs text-gray-600">
+          <div className="sm:text-right text-xs text-gray-600">
             <div>Created: {order.created_at ? new Date(order.created_at).toLocaleDateString() : '—'}</div>
             <div>Updated: {order.updated_at ? new Date(order.updated_at).toLocaleDateString() : '—'}</div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs text-gray-600 mr-2">Status:</span>
           {STATUS_FLOW.map((s, i) => (
             <div key={s} className="flex items-center gap-2">
@@ -186,12 +184,12 @@ export default function OrderDetailsPage({ orderId, onBack }: { orderId: number;
             </div>
           ))}
           {nextStatus && nextStatus !== 'cancelled' && (
-            <Button size="sm" className="ml-3" onClick={() => handleStatusUpdate(nextStatus)} loading={updatingStatus}>
+            <Button size="sm" className="sm:ml-3" onClick={() => handleStatusUpdate(nextStatus)} loading={updatingStatus}>
               Move to {nextStatus}
             </Button>
           )}
           {order.status !== 'cancelled' && order.status !== 'completed' && (
-            <Button variant="danger" size="sm" className="ml-2" onClick={() => handleStatusUpdate('cancelled')} loading={updatingStatus}>
+            <Button variant="danger" size="sm" className="sm:ml-2" onClick={() => handleStatusUpdate('cancelled')} loading={updatingStatus}>
               Cancel Order
             </Button>
           )}
@@ -204,8 +202,8 @@ export default function OrderDetailsPage({ orderId, onBack }: { orderId: number;
           {items.length === 0 ? (
             <div className="bg-gray-100 border border-gray-200 rounded-xl p-6 text-center text-gray-600 text-sm">No items</div>
           ) : (
-            <div className="bg-gray-100 border border-gray-200 rounded-xl overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="bg-gray-100 border border-gray-200 rounded-xl overflow-x-auto">
+              <table className="w-full min-w-[380px] text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 text-gray-500 text-xs uppercase tracking-wider">
                     <th className="text-left px-4 py-3 font-medium">Product</th>

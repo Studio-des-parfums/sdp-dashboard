@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Activity, ChevronDown, LogOut } from 'lucide-react'
+import { ArrowLeft, Activity, ChevronDown, LogOut, Menu } from 'lucide-react'
 import { api } from '../api/client'
 import { Sidebar } from '../components/Sidebar'
 import AdminPage from './AdminPage'
@@ -41,6 +41,7 @@ export function DashboardView() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [collapsed, setCollapsed] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [activeSection, setActiveSectionState] = useState('overview')
 
   // Garde la section active dans l'URL (?section=...) pour qu'un refresh ne retombe pas
@@ -156,6 +157,8 @@ export function DashboardView() {
         activeSection={activeSection}
         onSectionChange={setActiveSection}
         collapsed={collapsed}
+        mobileOpen={mobileMenuOpen}
+        onCloseMobile={() => setMobileMenuOpen(false)}
         userMode={isUserMode}
         onOpenSettings={() => setSettingsOpen(true)}
         onLogout={() => { logout(); navigate('/login') }}
@@ -168,10 +171,19 @@ export function DashboardView() {
         } : undefined}
       />
       <main className="flex-1 overflow-y-auto">
-        <div className="h-14 border-b border-gray-200 flex items-center px-6 gap-4">
+        <div className="h-14 border-b border-gray-200 flex items-center px-4 md:px-6 gap-2 md:gap-4">
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(true)}
+            className="md:hidden text-gray-600 hover:text-gray-900 transition-colors p-1"
+            title="Menu"
+            aria-label="Ouvrir le menu"
+          >
+            <Menu size={18} />
+          </button>
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="text-gray-600 hover:text-gray-900 transition-colors text-xs"
+            className="hidden md:block text-gray-600 hover:text-gray-900 transition-colors text-xs"
           >
             {collapsed ? '→' : '←'}
           </button>
@@ -180,23 +192,25 @@ export function DashboardView() {
             className="text-gray-600 hover:text-gray-900 transition-colors flex items-center gap-1 text-xs"
           >
             <ArrowLeft size={14} />
-            Retour
+            <span className="hidden sm:inline">Retour</span>
           </button>
 
           <div className="h-6 w-px bg-gray-200" />
 
-          <span className="text-sm font-semibold text-gray-900">Tableau de bord</span>
+          <span className="text-sm font-semibold text-gray-900 truncate">
+            {isMarketplace ? 'SDP OCR' : 'Tableau de bord'}
+          </span>
 
           <div className="relative ml-auto">
             <button
               onClick={() => setSelectOpen(!selectOpen)}
-              className="flex items-center gap-2 bg-white hover:bg-gray-200 text-xs text-gray-600 px-3 py-1.5 rounded-lg transition-colors"
+              className="flex items-center gap-2 bg-white hover:bg-gray-200 text-xs text-gray-600 px-2.5 sm:px-3 py-1.5 rounded-lg transition-colors max-w-[140px] sm:max-w-none"
             >
               {currentProject && (
-                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: currentProject.color }} />
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: currentProject.color }} />
               )}
-              {currentProject?.name ?? 'Chargement...'}
-              <ChevronDown size={14} className={`transition-transform ${selectOpen ? 'rotate-180' : ''}`} />
+              <span className="truncate">{currentProject?.name ?? 'Chargement...'}</span>
+              <ChevronDown size={14} className={`shrink-0 transition-transform ${selectOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {selectOpen && (
@@ -226,14 +240,14 @@ export function DashboardView() {
 
           <button
             onClick={() => { logout(); navigate('/login'); }}
-            className="text-gray-600 hover:text-red-700 transition-colors"
+            className="text-gray-600 hover:text-red-700 transition-colors p-1"
             title="Déconnexion"
           >
             <LogOut size={16} />
           </button>
         </div>
 
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {loading ? (
             <div className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

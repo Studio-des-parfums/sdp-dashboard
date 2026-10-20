@@ -45,7 +45,7 @@ export default function HomePage({ section, projects, firstName, isAdmin, openTi
   const solutions = projects.filter((p) => p.slug !== 'sdp-core')
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-12">
+    <div className="max-w-5xl mx-auto py-4 sm:py-6">
       <section className="text-center mb-16">
         <div className="inline-flex items-center gap-2 bg-indigo-600/10 text-indigo-600 text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
           <Sparkles size={14} />
@@ -179,7 +179,7 @@ function HelpSection({ projects, onBackHome }: { projects: Project[]; onBackHome
   const selectClassName = 'w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-indigo-500 transition-colors'
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-12">
+    <div className="max-w-3xl mx-auto py-4 sm:py-6">
       <button
         onClick={onBackHome}
         className="text-gray-600 hover:text-gray-900 transition-colors flex items-center gap-1 text-xs mb-8"

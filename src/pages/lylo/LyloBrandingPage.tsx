@@ -43,7 +43,7 @@ export default function LyloBrandingPage() {
   }
 
   return (
-    <div className="p-6">
+    <div>
       <h1 className="text-xl font-bold text-gray-900 mb-2">Branding</h1>
       <p className="text-sm text-gray-600 mb-6">
         Logo secondaire affiché sur le site Lylo, à côté du logo du Studio des Parfums (barre de

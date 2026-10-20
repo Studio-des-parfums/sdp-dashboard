@@ -1,6 +1,6 @@
 export default function LyloHomePage() {
   return (
-    <div className="space-y-8 p-6">
+    <div className="space-y-8">
       <section className="grid grid-cols-1 gap-6 md:grid-cols-3">
         <div className="group relative overflow-hidden rounded-xl border border-gray-200 bg-gray-100 p-6">
           <div className="relative z-10">

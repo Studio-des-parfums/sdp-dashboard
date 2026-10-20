@@ -273,8 +273,8 @@ export default function ClientsPage({
   const countries = allCountries
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-lg font-bold text-gray-900">👥 Clients</h1>
           <p className="text-xs text-gray-600 mt-0.5">
@@ -478,11 +478,11 @@ export default function ClientsPage({
           </div>
 
           {pagination.total_pages > 1 && (
-            <div className="flex items-center justify-between mt-2">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-2">
               <span className="text-xs text-gray-600">
                 Page {pagination.page} sur {pagination.total_pages}
               </span>
-              <div className="flex gap-1">
+              <div className="flex gap-1 flex-wrap justify-center">
                 <Button variant="secondary" size="sm" disabled={pagination.page <= 1} onClick={() => fetchCustomers(pagination.page - 1)}>◀</Button>
                 {pageNumbers.map((p, i) =>
                   typeof p === 'string' ? (
