@@ -8,11 +8,13 @@ import type { PoluxTask, PoluxUserRef } from '../../types/polux'
 import { formatDeadline, PRIORITY_LABEL } from './priority'
 import { AssigneePicker } from './AssigneePicker'
 import { ColorPicker } from './ColorPicker'
+import { ProjectPicker } from './ProjectPicker'
 
 interface CreateTaskModalProps {
   open: boolean
   teamId: number
   users: PoluxUserRef[]
+  existingProjects?: string[]
   onClose: () => void
   onCreated: (task: PoluxTask) => void
 }
@@ -21,7 +23,7 @@ function emptyForm() {
   return { title: '', description: '', projectName: '', assignedToIds: [] as number[], priority: 'moyenne' as PoluxTask['priority'], color: null as string | null, startDate: '', deadline: '' }
 }
 
-export function CreateTaskModal({ open, teamId, users, onClose, onCreated }: CreateTaskModalProps) {
+export function CreateTaskModal({ open, teamId, users, existingProjects = [], onClose, onCreated }: CreateTaskModalProps) {
   const [form, setForm] = useState(emptyForm())
   const [colorPickerOpen, setColorPickerOpen] = useState(false)
   const [dateMenuOpen, setDateMenuOpen] = useState(false)
@@ -183,7 +185,11 @@ export function CreateTaskModal({ open, teamId, users, onClose, onCreated }: Cre
         </div>
         <div className="space-y-2">
           <Label>Projet</Label>
-          <Input value={form.projectName} onChange={(e) => setForm((s) => ({ ...s, projectName: e.target.value }))} placeholder="Nom du projet (optionnel)" />
+          <ProjectPicker
+            value={form.projectName}
+            existingProjects={existingProjects}
+            onChange={(v) => setForm((s) => ({ ...s, projectName: v }))}
+          />
         </div>
         <div className="space-y-2">
           <Label>Priorité</Label>

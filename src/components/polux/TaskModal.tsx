@@ -9,17 +9,19 @@ import { formatDeadline, PRIORITY_LABEL, STATUS_LABEL, toDateInputValue } from '
 import { MentionInput } from './MentionInput'
 import { AssigneePicker } from './AssigneePicker'
 import { ColorPicker } from './ColorPicker'
+import { ProjectPicker } from './ProjectPicker'
 import { CommentBody } from './CommentBody'
 
 interface TaskModalProps {
   task: PoluxTask | null
   users: PoluxUserRef[]
+  existingProjects?: string[]
   onClose: () => void
   onUpdated: (task: PoluxTask) => void
   onDeleted: (taskId: number) => void
 }
 
-export function TaskModal({ task, users, onClose, onUpdated, onDeleted }: TaskModalProps) {
+export function TaskModal({ task, users, existingProjects = [], onClose, onUpdated, onDeleted }: TaskModalProps) {
   const [form, setForm] = useState<TaskPatch>({})
   const [editingTitle, setEditingTitle] = useState(false)
   const [colorPickerOpen, setColorPickerOpen] = useState(false)
@@ -337,11 +339,11 @@ export function TaskModal({ task, users, onClose, onUpdated, onDeleted }: TaskMo
 
         <div className="space-y-2">
           <Label>Projet</Label>
-          <Input
+          <ProjectPicker
             value={form.project_name ?? ''}
-            onChange={(e) => setForm((s) => ({ ...s, project_name: e.target.value }))}
-            onBlur={() => form.project_name !== task.project_name && savePatch({ project_name: form.project_name || null })}
-            placeholder="Nom du projet (optionnel)"
+            existingProjects={existingProjects}
+            onChange={(v) => setForm((s) => ({ ...s, project_name: v }))}
+            onCommit={(v) => v !== (task.project_name ?? '') && savePatch({ project_name: v || null })}
           />
         </div>
 

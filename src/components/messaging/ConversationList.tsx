@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { X, Search } from 'lucide-react'
+import { X, Search, ChevronDown } from 'lucide-react'
 import { useMessaging } from '../../contexts/MessagingContext'
 import { messagesClient, type Contact } from '../../api/messagesClient'
 
@@ -27,6 +27,7 @@ export function ConversationList({ onSelect, onClose }: ConversationListProps) {
   const { conversations, refreshConversations } = useMessaging()
   const [contacts, setContacts] = useState<Contact[]>([])
   const [search, setSearch] = useState('')
+  const [othersOpen, setOthersOpen] = useState(false)
 
   useEffect(() => {
     refreshConversations()
@@ -46,6 +47,12 @@ export function ConversationList({ onSelect, onClose }: ConversationListProps) {
           return { contact: c, conversation: conv ?? null }
         })
     : []
+
+  // Collègues sans discussion en cours — listés pour ne pas devoir connaître/taper leur nom
+  // pour démarrer une conversation, en plus de la recherche ci-dessus.
+  const otherContacts = contacts
+    .filter((c) => !conversations.some((conv) => conv.user_id === c.id))
+    .sort((a, b) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`))
 
   return (
     <div className="flex flex-col h-full">
@@ -106,39 +113,70 @@ export function ConversationList({ onSelect, onClose }: ConversationListProps) {
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto py-1">
-          {conversations.length === 0 ? (
+          {conversations.length === 0 && otherContacts.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full gap-2 text-center px-6">
               <p className="text-sm text-gray-900 font-medium">Aucune discussion</p>
-              <p className="text-xs text-gray-600">Recherchez un collègue ci-dessus pour démarrer une discussion.</p>
+              <p className="text-xs text-gray-600">Aucun collègue disponible pour le moment.</p>
             </div>
-          ) : (
-            conversations.map((c) => (
-              <button
-                key={c.user_id}
-                onClick={() => onSelect(c.user_id, `${c.first_name} ${c.last_name}`)}
-                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-100 transition-colors text-left"
-              >
-                <span className="w-9 h-9 rounded-full bg-indigo-600/10 text-indigo-600 text-xs font-bold flex items-center justify-center shrink-0">
-                  {initials(c.first_name, c.last_name)}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className={`text-sm truncate ${c.unread_count > 0 ? 'font-semibold text-gray-900' : 'text-gray-900'}`}>
-                      {c.first_name} {c.last_name}
-                    </span>
-                    <span className="text-[10px] text-gray-600 shrink-0">{relativeTime(c.last_message_at)}</span>
-                  </div>
-                  <p className={`text-xs truncate ${c.unread_count > 0 ? 'text-gray-900 font-medium' : 'text-gray-600'}`}>
-                    {c.last_message}
-                  </p>
-                </div>
-                {c.unread_count > 0 && (
-                  <span className="shrink-0 bg-indigo-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
-                    {c.unread_count > 99 ? '99+' : c.unread_count}
+          )}
+
+          {conversations.length > 0 && (
+            <>
+              {otherContacts.length > 0 && (
+                <p className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">Discussions</p>
+              )}
+              {conversations.map((c) => (
+                <button
+                  key={c.user_id}
+                  onClick={() => onSelect(c.user_id, `${c.first_name} ${c.last_name}`)}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-100 transition-colors text-left"
+                >
+                  <span className="w-9 h-9 rounded-full bg-indigo-600/10 text-indigo-600 text-xs font-bold flex items-center justify-center shrink-0">
+                    {initials(c.first_name, c.last_name)}
                   </span>
-                )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`text-sm truncate ${c.unread_count > 0 ? 'font-semibold text-gray-900' : 'text-gray-900'}`}>
+                        {c.first_name} {c.last_name}
+                      </span>
+                      <span className="text-[10px] text-gray-600 shrink-0">{relativeTime(c.last_message_at)}</span>
+                    </div>
+                    <p className={`text-xs truncate ${c.unread_count > 0 ? 'text-gray-900 font-medium' : 'text-gray-600'}`}>
+                      {c.last_message}
+                    </p>
+                  </div>
+                  {c.unread_count > 0 && (
+                    <span className="shrink-0 bg-indigo-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                      {c.unread_count > 99 ? '99+' : c.unread_count}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </>
+          )}
+
+          {otherContacts.length > 0 && (
+            <>
+              <button
+                onClick={() => setOthersOpen((o) => !o)}
+                className="flex w-full items-center gap-1.5 px-4 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-500 hover:text-gray-700"
+              >
+                <ChevronDown size={13} className={`transition-transform ${othersOpen ? '' : '-rotate-90'}`} />
+                Tous les collègues ({otherContacts.length})
               </button>
-            ))
+              {othersOpen && otherContacts.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => onSelect(c.id, `${c.first_name} ${c.last_name}`)}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-100 transition-colors text-left"
+                >
+                  <span className="w-9 h-9 rounded-full bg-gray-200 text-gray-600 text-xs font-bold flex items-center justify-center shrink-0">
+                    {initials(c.first_name, c.last_name)}
+                  </span>
+                  <span className="text-sm text-gray-900 truncate">{c.first_name} {c.last_name}</span>
+                </button>
+              ))}
+            </>
           )}
         </div>
       )}

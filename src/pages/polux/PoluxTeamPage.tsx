@@ -39,6 +39,12 @@ export default function PoluxTeamPage({ teamSlug, isAdmin = false, onDeleted }: 
   const activeTeamTasks = useMemo(() => teamTasks.filter((t) => t.status !== 'termine'), [teamTasks])
   const teamMembers = useMemo(() => team ? users.filter((u) => team.member_ids.includes(u.id)) : [], [users, team])
   const nonMembers = useMemo(() => team ? users.filter((u) => !team.member_ids.includes(u.id)) : [], [users, team])
+  // Projets déjà renseignés et encore en cours (au moins une tâche non terminée) — proposés
+  // dans le select "Projet" des formulaires de tâche, sans empêcher d'en taper un nouveau.
+  const activeProjects = useMemo(
+    () => Array.from(new Set(teamTasks.filter((t) => t.status !== 'termine' && t.project_name).map((t) => t.project_name as string))),
+    [teamTasks]
+  )
 
   function handleMemberAdded(userId: number) {
     setTeams((prev) => prev.map((t) => (t.id === team?.id ? { ...t, member_ids: [...t.member_ids, userId] } : t)))
@@ -164,10 +170,11 @@ export default function PoluxTeamPage({ teamSlug, isAdmin = false, onDeleted }: 
         open={createOpen}
         teamId={team.id}
         users={users}
+        existingProjects={activeProjects}
         onClose={() => setCreateOpen(false)}
         onCreated={handleCreated}
       />
-      <TaskModal task={selectedTask} users={users} onClose={() => setSelectedTask(null)} onUpdated={handleUpdated} onDeleted={handleDeleted} />
+      <TaskModal task={selectedTask} users={users} existingProjects={activeProjects} onClose={() => setSelectedTask(null)} onUpdated={handleUpdated} onDeleted={handleDeleted} />
       <TeamMembersModal
         open={membersOpen}
         teamId={team.id}

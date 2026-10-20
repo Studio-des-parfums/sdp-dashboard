@@ -37,6 +37,10 @@ export default function PoluxHomePage({ onOpenTeam, isAdmin = false }: PoluxHome
     [tasks, currentUser]
   )
   const myActiveTasks = useMemo(() => myTasks.filter((t) => t.status !== 'termine'), [myTasks])
+  const activeProjects = useMemo(
+    () => Array.from(new Set(tasks.filter((t) => t.status !== 'termine' && t.project_name).map((t) => t.project_name as string))),
+    [tasks]
+  )
 
   // Un utilisateur non-admin ne doit voir, sur "Mon espace", que les espaces dont il est
   // membre — même règle d'accès que la sidebar (voir DashboardView.tsx).
@@ -181,7 +185,7 @@ export default function PoluxHomePage({ onOpenTeam, isAdmin = false }: PoluxHome
         <TaskListView tasks={myActiveTasks} users={users} teams={teams} showProjectColumn showTeamColumn onOpenTask={setSelectedTask} />
       </div>
 
-      <TaskModal task={selectedTask} users={users} onClose={() => setSelectedTask(null)} onUpdated={handleUpdated} onDeleted={handleDeleted} />
+      <TaskModal task={selectedTask} users={users} existingProjects={activeProjects} onClose={() => setSelectedTask(null)} onUpdated={handleUpdated} onDeleted={handleDeleted} />
       <CreatePersonalTaskModal open={createPersonalOpen} onClose={() => setCreatePersonalOpen(false)} onCreated={handleCreated} />
       <CompletedTasksModal
         open={completedOpen}
