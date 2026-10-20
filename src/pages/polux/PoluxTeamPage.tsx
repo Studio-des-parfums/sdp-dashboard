@@ -15,7 +15,7 @@ function defaultExtendedDate(): string {
   return d.toISOString().slice(0, 10)
 }
 
-export default function PoluxTeamPage({ teamSlug, onDeleted }: { teamSlug: string; onDeleted?: () => void }) {
+export default function PoluxTeamPage({ teamSlug, isAdmin = false, onDeleted }: { teamSlug: string; isAdmin?: boolean; onDeleted?: () => void }) {
   const [teams, setTeams] = useState<PoluxTeam[]>([])
   const [tasks, setTasks] = useState<PoluxTask[]>([])
   const [users, setUsers] = useState<PoluxUserRef[]>([])
@@ -121,9 +121,11 @@ export default function PoluxTeamPage({ teamSlug, onDeleted }: { teamSlug: strin
             </div>
           </div>
           <div className="flex gap-2">
-            <Button type="button" onClick={() => setMembersOpen(true)}>
-              Membres
-            </Button>
+            {isAdmin && (
+              <Button type="button" onClick={() => setMembersOpen(true)}>
+                Membres
+              </Button>
+            )}
             <Button type="button" onClick={() => setCompletedOpen(true)}>
               Tâches terminées
             </Button>

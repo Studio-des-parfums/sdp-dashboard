@@ -12,9 +12,10 @@ import { isOverdue } from '../../components/polux/priority'
 
 interface PoluxHomePageProps {
   onOpenTeam?: (teamSlug: string) => void
+  isAdmin?: boolean
 }
 
-export default function PoluxHomePage({ onOpenTeam }: PoluxHomePageProps) {
+export default function PoluxHomePage({ onOpenTeam, isAdmin = false }: PoluxHomePageProps) {
   const { sdpUser } = useAuth()
   const [teams, setTeams] = useState<PoluxTeam[]>([])
   const [tasks, setTasks] = useState<PoluxTask[]>([])
@@ -37,14 +38,21 @@ export default function PoluxHomePage({ onOpenTeam }: PoluxHomePageProps) {
   )
   const myActiveTasks = useMemo(() => myTasks.filter((t) => t.status !== 'termine'), [myTasks])
 
+  // Un utilisateur non-admin ne doit voir, sur "Mon espace", que les espaces dont il est
+  // membre — même règle d'accès que la sidebar (voir DashboardView.tsx).
+  const visibleTeams = useMemo(
+    () => isAdmin ? teams : teams.filter((t) => !!currentUser && t.member_ids.includes(currentUser.id)),
+    [teams, isAdmin, currentUser]
+  )
+
   const teamStats = useMemo(() => {
-    return teams.map((team) => {
+    return visibleTeams.map((team) => {
       const teamTasks = tasks.filter((t) => t.team_id === team.id)
       const remaining = teamTasks.filter((t) => t.status !== 'termine').length
       const overdue = teamTasks.filter((t) => isOverdue(t.deadline, t.status)).length
       return { team, remaining, overdue }
     })
-  }, [teams, tasks])
+  }, [visibleTeams, tasks])
 
   const totalRemaining = useMemo(() => teamStats.reduce((sum, s) => sum + s.remaining, 0), [teamStats])
   const totalOverdue = useMemo(() => teamStats.reduce((sum, s) => sum + s.overdue, 0), [teamStats])
@@ -71,7 +79,7 @@ export default function PoluxHomePage({ onOpenTeam }: PoluxHomePageProps) {
           {currentUser ? `Bonjour ${currentUser.first_name} 👋` : 'Mon espace'}
         </h2>
         <p className="mt-1 text-sm text-gray-500">
-          {teams.length} espace{teams.length > 1 ? 's' : ''} actif{teams.length > 1 ? 's' : ''} — voici où vous en êtes.
+          {visibleTeams.length} espace{visibleTeams.length > 1 ? 's' : ''} actif{visibleTeams.length > 1 ? 's' : ''} — voici où vous en êtes.
         </p>
 
         <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -80,7 +88,7 @@ export default function PoluxHomePage({ onOpenTeam }: PoluxHomePageProps) {
               <LayoutGrid size={18} />
             </div>
             <div>
-              <p className="text-lg font-bold leading-none text-gray-900">{teams.length}</p>
+              <p className="text-lg font-bold leading-none text-gray-900">{visibleTeams.length}</p>
               <p className="text-xs text-gray-600">Espaces</p>
             </div>
           </div>

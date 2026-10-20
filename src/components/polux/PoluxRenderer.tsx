@@ -13,7 +13,7 @@ interface PoluxRendererProps {
 }
 
 export default function PoluxRenderer({ section, onTeamDeleted, onSectionChange, isAdmin }: PoluxRendererProps) {
-  if (section === 'accueil') return <PoluxHomePage onOpenTeam={(slug) => onSectionChange?.(`team-${slug}`)} />
+  if (section === 'accueil') return <PoluxHomePage isAdmin={!!isAdmin} onOpenTeam={(slug) => onSectionChange?.(`team-${slug}`)} />
   if (section === 'leads') {
     return <PoluxLeadsPage onCreateLead={() => onSectionChange?.('leads-nouveau')} canManageAccess={!!isAdmin} />
   }
@@ -27,7 +27,7 @@ export default function PoluxRenderer({ section, onTeamDeleted, onSectionChange,
   }
   if (section.startsWith(TEAM_SECTION_PREFIX)) {
     const teamSlug = section.slice(TEAM_SECTION_PREFIX.length)
-    return <PoluxTeamPage teamSlug={teamSlug} onDeleted={() => onTeamDeleted?.(teamSlug)} />
+    return <PoluxTeamPage teamSlug={teamSlug} isAdmin={!!isAdmin} onDeleted={() => onTeamDeleted?.(teamSlug)} />
   }
   return <div className="text-sm text-gray-500 p-6">Section inconnue</div>
 }
