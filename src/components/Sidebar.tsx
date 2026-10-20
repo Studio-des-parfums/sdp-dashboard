@@ -232,26 +232,32 @@ export function Sidebar(props: SidebarProps) {
                 </button>
 
                 {mobileProjectSelectOpen && (
-                  <div className="mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-30">
-                    {projects.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => {
-                          setMobileProjectSelectOpen(false)
-                          onSwitchProject(p.slug)
-                          onCloseMobile?.()
-                        }}
-                        className={`w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors ${p.slug === currentSlug ? 'text-indigo-600 bg-indigo-50 font-medium' : 'text-gray-700 hover:bg-gray-100'}`}
-                      >
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
-                        <span className="truncate">{p.name}</span>
-                        {p.status === 'maintenance' && (
-                          <span className="ml-auto text-[10px] text-amber-600">Maint.</span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
+                  <>
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setMobileProjectSelectOpen(false)}
+                    />
+                    <div className="absolute bottom-full left-0 right-0 mb-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1 z-50 max-h-60 overflow-y-auto">
+                      {projects.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => {
+                            setMobileProjectSelectOpen(false)
+                            onSwitchProject(p.slug)
+                            onCloseMobile?.()
+                          }}
+                          className={`w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors ${p.slug === currentSlug ? 'text-indigo-600 bg-indigo-50 font-medium' : 'text-gray-700 hover:bg-gray-100'}`}
+                        >
+                          <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+                          <span className="truncate">{p.name}</span>
+                          {p.status === 'maintenance' && (
+                            <span className="ml-auto text-[10px] text-amber-600">Maint.</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </>
                 )}
               </div>
             </div>

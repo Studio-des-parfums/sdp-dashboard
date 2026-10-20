@@ -75,7 +75,12 @@ export default function ClientsPage({
   const [filterEmptyFields, setFilterEmptyFields] = useState<Set<string>>(new Set())
   const [emptyFieldsOpen, setEmptyFieldsOpen] = useState(false)
   const emptyFieldsRef = useRef<HTMLDivElement>(null)
-  const [showFilters, setShowFilters] = useState(true)
+  const [showFilters, setShowFilters] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 640
+    }
+    return true
+  })
   const [pendingReviews, setPendingReviews] = useState(0)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>()
 
