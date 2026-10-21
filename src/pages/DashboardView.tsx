@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Activity, ChevronDown, LogOut, Menu } from 'lucide-react'
+import { ArrowLeft, Activity, ChevronDown, LogOut, Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { api } from '../api/client'
 import { Sidebar } from '../components/Sidebar'
 import AdminPage from './AdminPage'
@@ -36,23 +36,39 @@ export function DashboardView() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { logout, user, sdpUser } = useAuth()
+
+  // Rétrocompatibilité avec d'anciens liens utilisant les slugs pré-renommage (marketplace/analytics).
+  const normalizedSlug = slug === 'marketplace' ? 'aglae' : slug === 'analytics' ? 'lylo' : slug
+  const isHome = normalizedSlug === 'sdp-core'
+
+
   const [dashboard, setDashboard] = useState<Dashboard | null>(null)
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [collapsed, setCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const urlSection = searchParams.get('section')
   const [activeSection, setActiveSectionState] = useState('overview')
 
-  // Garde la section active dans l'URL (?section=...) pour qu'un refresh ne retombe pas
-  // systématiquement sur l'accueil : on resynchronise state + query param ensemble.
+  // Synchronise la section active quand le query param ?section= change (bouton retour / navigation historique)
+  useEffect(() => {
+    if (!dashboard) return
+    const defaultSection = isHome ? 'overview' : dashboard.sections[0]?.id || 'overview'
+    const target = urlSection || defaultSection
+    setActiveSectionState(target)
+  }, [urlSection, isHome, dashboard])
+
+  // Garde la section active dans l'URL (?section=...) et ajoute une entrée dans l'historique
+  // pour permettre le retour à la section précédente.
   const setActiveSection = useCallback((section: string) => {
     setActiveSectionState(section)
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev)
+      if (next.get('section') === section) return prev
       next.set('section', section)
       return next
-    }, { replace: true })
+    })
   }, [setSearchParams])
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [openTicketsCount, setOpenTicketsCount] = useState(0)
@@ -65,9 +81,7 @@ export function DashboardView() {
   const [selectOpen, setSelectOpen] = useState(false)
   const [createTeamOpen, setCreateTeamOpen] = useState(false)
 
-  // Rétrocompatibilité avec d'anciens liens utilisant les slugs pré-renommage (marketplace/analytics).
-  const normalizedSlug = slug === 'marketplace' ? 'aglae' : slug === 'analytics' ? 'lylo' : slug
-  const isHome = normalizedSlug === 'sdp-core'
+
 
   const [projectsLoaded, setProjectsLoaded] = useState(false)
 
@@ -130,6 +144,37 @@ export function DashboardView() {
     setSelectOpen(false)
   }, [navigate])
 
+  const handleBack = useCallback(() => {
+    if (selectedFormulaId !== null) {
+      setSelectedFormulaId(null)
+      return
+    }
+    if (selectedCustomerId !== null) {
+      setSelectedCustomerId(null)
+      return
+    }
+    if (selectedOrderId !== null) {
+      setSelectedOrderId(null)
+      return
+    }
+    if (selectedGroupIds.length > 0) {
+      setSelectedGroupIds([])
+      return
+    }
+    if (window.history.state && typeof window.history.state.idx === 'number' && window.history.state.idx > 0) {
+      navigate(-1)
+    } else {
+      navigate('/')
+    }
+  }, [navigate, selectedFormulaId, selectedCustomerId, selectedOrderId, selectedGroupIds])
+
+  useEffect(() => {
+    setSelectedCustomerId(null)
+    setSelectedFormulaId(null)
+    setSelectedGroupIds([])
+    setSelectedOrderId(null)
+  }, [activeSection])
+
   const currentProject = projects.find((p) => p.slug === normalizedSlug)
   const isMarketplace = normalizedSlug === 'aglae'
   const isNinno = normalizedSlug === 'mobile-app'
@@ -185,14 +230,20 @@ export function DashboardView() {
             <Menu size={18} />
           </button>
           <button
+            type="button"
             onClick={() => setCollapsed(!collapsed)}
-            className="hidden md:block text-gray-600 hover:text-gray-900 transition-colors text-xs"
+            className="hidden md:flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors p-1.5 rounded-lg"
+            title={collapsed ? 'Agrandir la barre latérale' : 'Réduire la barre latérale'}
+            aria-label={collapsed ? 'Agrandir la barre latérale' : 'Réduire la barre latérale'}
           >
-            {collapsed ? '→' : '←'}
+            {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
           </button>
           <button
-            onClick={() => navigate('/')}
+            type="button"
+            onClick={handleBack}
             className="text-gray-600 hover:text-gray-900 transition-colors flex items-center gap-1 text-xs"
+            title="Page précédente"
+            aria-label="Page précédente"
           >
             <ArrowLeft size={14} />
             <span className="hidden sm:inline">Retour</span>

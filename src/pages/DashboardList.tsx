@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Menu } from 'lucide-react'
+import { Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { Sidebar } from '../components/Sidebar'
 import { DashboardCard } from '../components/DashboardCard'
 import { api } from '../api/client'
@@ -41,10 +41,13 @@ export function DashboardList() {
             <Menu size={18} />
           </button>
           <button
+            type="button"
             onClick={() => setCollapsed(!collapsed)}
-            className="hidden md:block text-gray-600 hover:text-gray-900 transition-colors text-xs"
+            className="hidden md:flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors p-1.5 rounded-lg"
+            title={collapsed ? 'Agrandir la barre latérale' : 'Réduire la barre latérale'}
+            aria-label={collapsed ? 'Agrandir la barre latérale' : 'Réduire la barre latérale'}
           >
-            {collapsed ? '→' : '←'}
+            {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
           </button>
           <h1 className="hidden md:block text-sm font-semibold text-gray-900 ml-2 md:ml-4">Tableau de bord</h1>
         </div>
