@@ -1,20 +1,28 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronLeft, ChevronRight, Download, ExternalLink, FileText, X } from 'lucide-react'
-import type { PoluxAttachment } from '../../types/polux'
+/** Fichier affichable : pièce jointe Polux, pièce jointe de message… */
+export interface ViewableFile {
+  filename: string
+  /** URL d'aperçu (affichage inline). */
+  url: string
+  /** URL qui force le téléchargement. */
+  download_url?: string
+  content_type: string
+}
 
 interface AttachmentViewerProps {
-  attachments: PoluxAttachment[]
+  attachments: ViewableFile[]
   index: number
   onIndexChange: (index: number) => void
   onClose: () => void
 }
 
-export function isImage(a: PoluxAttachment): boolean {
+export function isImage(a: ViewableFile): boolean {
   return a.content_type.startsWith('image/')
 }
 
-function Preview({ attachment }: { attachment: PoluxAttachment }) {
+function Preview({ attachment }: { attachment: ViewableFile }) {
   const type = attachment.content_type
   if (type.startsWith('image/')) {
     return <img src={attachment.url} alt={attachment.filename} className="max-h-full max-w-full object-contain" />
@@ -39,8 +47,8 @@ function Preview({ attachment }: { attachment: PoluxAttachment }) {
   )
 }
 
-// Visionneuse plein écran des pièces jointes d'une tâche (image, PDF, vidéo, audio, texte),
-// rendue dans <body> par-dessus la modale de la tâche.
+// Visionneuse plein écran de fichiers (image, PDF, vidéo, audio, texte) — pièces jointes des
+// tâches Polux et des messages — rendue dans <body> par-dessus les modales et panneaux.
 export function AttachmentViewer({ attachments, index, onIndexChange, onClose }: AttachmentViewerProps) {
   const attachment = attachments[index]
   const hasPrev = index > 0

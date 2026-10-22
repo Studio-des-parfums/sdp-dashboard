@@ -62,7 +62,10 @@
       "dist-electron/**/*"
     ],
     "mac": {
-      "target": "dmg"
+      "target": "dmg",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "SDP utilise le micro pour enregistrer les messages vocaux."
+      }
     },
     "win": {
       "target": "nsis"
