@@ -60,6 +60,11 @@ export interface Message {
   /** Pièce jointe (image ou PDF) : URL d'aperçu et de téléchargement pré-signées (1h). */
   attachment?: { name: string; type: string; url: string; download_url: string } | null
   attachment_size?: number | null
+  /** Appel visio (Daily) annoncé par ce message : URL de la salle privée. */
+  call_url?: string | null
+  /** Compte rendu IA : URL de l'appel résumé, et contenu structuré. */
+  summary_for_call?: string | null
+  call_summary?: MeetingSummary | null
   is_read: boolean
   created_at: string
   sender_first_name?: string
@@ -75,6 +80,42 @@ export interface Conversation {
   last_message_at: string
   last_message_sender_id: number
   unread_count: number
+}
+
+/** Compte rendu IA d'une réunion (généré par le serveur à partir de la transcription). */
+export interface MeetingSummary {
+  titre?: string
+  resume: string
+  /** Discussion par sujet : qui a dit quoi, et pourquoi. */
+  sujets?: Array<{ titre: string; points: Array<{ auteur: string | null; texte: string }> }>
+  decisions: string[]
+}
+
+export type MeetingTaskPriority = 'basse' | 'moyenne' | 'haute' | 'urgente'
+
+/** Tâche détectée par l'IA dans une réunion, à valider (créée dans Polux) ou refuser. */
+export interface MeetingTask {
+  id: number
+  message_id: number
+  title: string
+  description: string
+  assignee_ids: number[]
+  /** Équipe suggérée (slug Polux) ; null = sans équipe (« Mon espace »). */
+  team_slug: string | null
+  /** YYYY-MM-DD */
+  deadline: string | null
+  priority: MeetingTaskPriority
+  status: 'proposee' | 'acceptee' | 'refusee'
+  decided_by: number | null
+  polux_task_id: number | null
+}
+
+export type MeetingTaskPatch = Partial<Pick<MeetingTask, 'title' | 'description' | 'assignee_ids' | 'team_slug' | 'deadline' | 'priority'>>
+
+/** Accès à une salle Daily : URL + jeton nominatif. */
+export interface CallAccess {
+  url: string
+  token: string
 }
 
 export interface GroupMember {
@@ -136,6 +177,31 @@ export const messagesClient = {
     form.append('file', file, file.name)
     return postForm('/messages/attachment', form)
   },
+
+  /** Lance un appel visio dans la conversation : salle privée + message d'invitation + jeton d'accès. */
+  startCall: (target: ConversationTarget) =>
+    request<{ message: Message } & CallAccess>('/calls', { method: 'POST', body: JSON.stringify(targetFields(target)) }),
+
+  /** Jeton d'accès à un appel (membres de la conversation uniquement ; erreur si l'appel est terminé). */
+  joinCall: (callUrl: string) =>
+    request<CallAccess>('/calls/join', { method: 'POST', body: JSON.stringify({ callUrl }) }),
+
+  /** Génère le compte rendu IA d'un appel terminé et le poste dans la conversation. */
+  generateCallSummary: (callUrl: string) =>
+    request<Message>('/calls/summary', { method: 'POST', body: JSON.stringify({ callUrl }) }),
+
+  getMeetingSummary: (messageId: number) =>
+    request<{ summary: MeetingSummary; created_at: string; tasks: MeetingTask[] }>(`/meeting-summaries/${messageId}`),
+
+  updateMeetingTask: (taskId: number, patch: MeetingTaskPatch) =>
+    request<MeetingTask>(`/meeting-tasks/${taskId}`, { method: 'PUT', body: JSON.stringify(patch) }),
+
+  /** À appeler une fois la tâche créée dans Polux : la marque acceptée pour tous les participants. */
+  acceptMeetingTask: (taskId: number, poluxTaskId: number) =>
+    request<MeetingTask>(`/meeting-tasks/${taskId}/accept`, { method: 'POST', body: JSON.stringify({ poluxTaskId }) }),
+
+  rejectMeetingTask: (taskId: number) =>
+    request<MeetingTask>(`/meeting-tasks/${taskId}/reject`, { method: 'POST' }),
 
   deleteMessage: (messageId: number) =>
     request<{ success: boolean }>(`/messages/${messageId}`, { method: 'DELETE' }),

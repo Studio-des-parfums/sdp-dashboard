@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { io, type Socket } from 'socket.io-client'
 import { useAuth } from './AuthContext'
-import { messagesClient, type Conversation, type ConversationTarget, type Message, type MessageGroup } from '../api/messagesClient'
+import { messagesClient, type CallAccess, type Conversation, type ConversationTarget, type Message, type MessageGroup } from '../api/messagesClient'
 
 const SOCKET_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')
 
@@ -9,6 +9,12 @@ const SOCKET_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api')
 export const SDP_NOTIFICATION_EVENT = 'sdp:notification'
 /** Événement window émis quand un message est supprimé (detail : { id, sender_id, group_id }). */
 export const MESSAGE_DELETED_EVENT = 'sdp:message-deleted'
+/** Un participant a modifié, accepté ou refusé une tâche de réunion (detail : { message_id }). */
+export const MEETING_TASKS_UPDATED_EVENT = 'sdp:meeting-tasks-updated'
+/** Génération du résumé d'un appel (detail : { callUrl } ; ready : { callUrl, message } ; failed : { callUrl, error }). */
+export const SUMMARY_PENDING_EVENT = 'sdp:summary-pending'
+export const SUMMARY_READY_EVENT = 'sdp:summary-ready'
+export const SUMMARY_FAILED_EVENT = 'sdp:summary-failed'
 
 /** Clé stable d'une conversation (handlers, comparaisons). */
 export function targetKey(target: ConversationTarget): string {
@@ -40,6 +46,10 @@ interface MessagingContextType {
   acknowledge: (target: ConversationTarget) => void
   refreshConversations: () => void
   registerMessageHandler: (target: ConversationTarget, handler: (msg: Message) => void) => () => void
+  /** Appel visio en cours (fenêtre Daily ouverte par-dessus SDP). */
+  activeCall: CallAccess | null
+  openCall: (call: CallAccess) => void
+  closeCall: () => void
 }
 
 const MessagingContext = createContext<MessagingContextType | null>(null)
@@ -58,6 +68,9 @@ export const MessagingProvider = ({ children }: { children: ReactNode }) => {
   const [panelOpen, setPanelOpen] = useState(false)
   const [activeTarget, setActiveTarget] = useState<ConversationTarget | null>(null)
   const [toasts, setToasts] = useState<IncomingToast[]>([])
+  const [activeCall, setActiveCall] = useState<CallAccess | null>(null)
+  const openCall = useCallback((call: CallAccess) => setActiveCall(call), [])
+  const closeCall = useCallback(() => setActiveCall(null), [])
   const socketRef = useRef<Socket | null>(null)
   const activeKeyRef = useRef<string | null>(null)
   const handlersRef = useRef<Map<string, Set<(msg: Message) => void>>>(new Map())
@@ -127,6 +140,9 @@ export const MessagingProvider = ({ children }: { children: ReactNode }) => {
       window.dispatchEvent(new CustomEvent(MESSAGE_DELETED_EVENT, { detail: payload }))
     })
 
+    socket.on('meeting_tasks_updated', (payload: { message_id: number }) =>
+      window.dispatchEvent(new CustomEvent(MEETING_TASKS_UPDATED_EVENT, { detail: payload })))
+
     // Groupe créé, participant ajouté, propriétaire changé : on recharge la liste.
     socket.on('group_updated', () => refreshConversations())
     socket.on('group_deleted', ({ group_id }: { group_id: number }) => {
@@ -169,6 +185,9 @@ export const MessagingProvider = ({ children }: { children: ReactNode }) => {
         acknowledge,
         refreshConversations,
         registerMessageHandler,
+        activeCall,
+        openCall,
+        closeCall,
       }}
     >
       {children}

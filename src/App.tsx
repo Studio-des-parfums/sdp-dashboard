@@ -11,6 +11,7 @@ import { AuthGuard } from './components/AuthGuard'
 import { UpdateManager } from './components/UpdateManager'
 import { MessagingPanel } from './components/messaging/MessagingPanel'
 import { MessageToastStack } from './components/messaging/MessageToastStack'
+import { VideoCallOverlay } from './components/messaging/VideoCallOverlay'
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
 
@@ -34,6 +35,7 @@ export default function App() {
             <MessagingProvider>
               {content}
               <MessagingPanel />
+              <VideoCallOverlay />
               <MessageToastStack />
               <UpdateManager />
             </MessagingProvider>

@@ -16,6 +16,7 @@
     "publish": "electron-builder --publish always"
   },
   "dependencies": {
+    "@daily-co/daily-js": "^0.93.0",
     "@react-oauth/google": "^0.12.2",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",

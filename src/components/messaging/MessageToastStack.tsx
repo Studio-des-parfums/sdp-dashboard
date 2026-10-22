@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Send, MessageCircle } from 'lucide-react'
+import { X, Send, MessageCircle, Video } from 'lucide-react'
 import { useMessaging, messageTarget } from '../../contexts/MessagingContext'
 import { messagesClient, type ConversationTarget } from '../../api/messagesClient'
 
@@ -8,8 +8,9 @@ function initials(name: string) {
   return parts.map((p) => p[0]).slice(0, 2).join('').toUpperCase()
 }
 
-function ToastItem({ target, title, content }: { target: ConversationTarget; title: string; content: string }) {
-  const { acknowledge, openConversation } = useMessaging()
+function ToastItem({ target, title, content, callUrl }: { target: ConversationTarget; title: string; content: string; callUrl: string | null }) {
+  const { acknowledge, openConversation, openCall } = useMessaging()
+  const [callError, setCallError] = useState<string | null>(null)
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
 
@@ -33,7 +34,7 @@ function ToastItem({ target, title, content }: { target: ConversationTarget; tit
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-gray-900 truncate">{title}</p>
-          <p className="text-xs text-gray-600 line-clamp-2">{content}</p>
+          <p className="text-xs text-gray-600 line-clamp-2">{callUrl ? '📹 vous invite à un appel visio' : content}</p>
         </div>
         <button
           onClick={() => acknowledge(target)}
@@ -43,6 +44,24 @@ function ToastItem({ target, title, content }: { target: ConversationTarget; tit
           <X size={16} />
         </button>
       </div>
+      {callUrl && (
+        <div className="px-3 pb-2">
+          <button
+            onClick={async () => {
+              try {
+                openCall(await messagesClient.joinCall(callUrl))
+                acknowledge(target)
+              } catch (err) {
+                setCallError(err instanceof Error ? err.message : "Impossible de rejoindre l'appel")
+              }
+            }}
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-emerald-600 py-2 text-sm font-semibold text-white hover:bg-emerald-500 transition-colors"
+          >
+            <Video size={15} /> Rejoindre l'appel
+          </button>
+          {callError && <p className="mt-1 text-center text-[11px] text-red-600">{callError}</p>}
+        </div>
+      )}
       <div className="flex items-center gap-2 px-3 pb-3">
         <input
           autoFocus
@@ -89,6 +108,7 @@ export function MessageToastStack() {
             target={messageTarget(t.message)}
             title={group ? `${group.name} · ${t.message.sender_first_name ?? sender}` : sender}
             content={t.message.content}
+            callUrl={t.message.call_url ?? null}
           />
         )
       })}

@@ -52,8 +52,9 @@ export function FloatingPanel({ anchorRef, onClose, width, maxHeight = 288, back
 
   return createPortal(
     <>
-      {backdrop && <div className="fixed inset-0 z-[60]" onClick={onClose} />}
-      <div style={style} className="z-[61] overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+      {/* Au-dessus de toutes les couches (modales, panneau de messagerie, résumé de réunion). */}
+      {backdrop && <div className="fixed inset-0 z-[95]" onClick={onClose} />}
+      <div style={style} className="z-[96] overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
         {children}
       </div>
     </>,

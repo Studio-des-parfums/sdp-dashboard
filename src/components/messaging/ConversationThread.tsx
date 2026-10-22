@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
-import { ArrowLeft, FileText, Mic, Paperclip, Send, Settings, Square, Trash2, X } from 'lucide-react'
+import { ArrowLeft, FileText, Loader2, Mic, Paperclip, Send, Settings, Sparkles, Square, Trash2, Video, X } from 'lucide-react'
 import { messagesClient, type ConversationTarget, type Message } from '../../api/messagesClient'
-import { useMessaging, MESSAGE_DELETED_EVENT, targetKey } from '../../contexts/MessagingContext'
+import { useMessaging, MESSAGE_DELETED_EVENT, SUMMARY_FAILED_EVENT, SUMMARY_PENDING_EVENT, SUMMARY_READY_EVENT, targetKey } from '../../contexts/MessagingContext'
+import { MeetingSummaryModal } from './MeetingSummaryModal'
 import { GroupSettings } from './GroupSettings'
 import { useAuth } from '../../contexts/AuthContext'
 import { useVoiceRecorder, type VoiceRecording } from './useVoiceRecorder'
@@ -61,11 +62,18 @@ function initials(name: string) {
   return name.trim().split(/\s+/).map((p) => p[0]).slice(0, 2).join('').toUpperCase()
 }
 
+/** Durée de vie d'une salle d'appel côté serveur (services/daily.ts) : au-delà, l'appel est terminé. */
+const CALL_TTL_MS = 6 * 60 * 60 * 1000
+
+function isCallOver(createdAt: string) {
+  return Date.now() - new Date(createdAt).getTime() > CALL_TTL_MS
+}
+
 const ROUND_BUTTON = 'w-10 h-10 shrink-0 flex items-center justify-center rounded-full transition-colors'
 
 export function ConversationThread({ target, name, onBack, initialContent }: ConversationThreadProps) {
   const { sdpUser } = useAuth()
-  const { registerMessageHandler, refreshConversations, groups, closeConversation } = useMessaging()
+  const { registerMessageHandler, refreshConversations, groups, closeConversation, openCall } = useMessaging()
   const key = targetKey(target)
   const isGroup = target.kind === 'group'
   const group = isGroup ? groups.find((g) => g.id === target.id) ?? null : null
@@ -203,6 +211,78 @@ export function ConversationThread({ target, name, onBack, initialContent }: Con
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, refreshConversations])
 
+  const [callError, setCallError] = useState<string | null>(null)
+
+  // Le serveur crée la salle privée et poste l'invitation ; on rejoint aussitôt l'appel.
+  async function startCall() {
+    setCallError(null)
+    try {
+      const { message, url, token } = await messagesClient.startCall(target)
+      setMessages((prev) => [...prev, message])
+      refreshConversations()
+      openCall({ url, token })
+    } catch (err) {
+      setCallError(err instanceof Error ? err.message : "Impossible de lancer l'appel")
+    }
+  }
+
+  const [summarizingCall, setSummarizingCall] = useState<string | null>(null)
+  const [openSummaryId, setOpenSummaryId] = useState<number | null>(null)
+  const summarizedCalls = useMemo(() => new Set(messages.map((m) => m.summary_for_call).filter(Boolean)), [messages])
+
+  // Résumé généré automatiquement à la fin de l'appel (VideoCallOverlay) : on suit sa préparation
+  // et on l'ajoute à la conversation dès qu'il est prêt.
+  useEffect(() => {
+    const concerns = (callUrl: string) => messages.some((m) => m.call_url === callUrl)
+    const onPending = (e: Event) => {
+      const { callUrl } = (e as CustomEvent<{ callUrl: string }>).detail
+      if (concerns(callUrl)) setSummarizingCall(callUrl)
+    }
+    const onReady = (e: Event) => {
+      const { callUrl, message } = (e as CustomEvent<{ callUrl: string; message: Message }>).detail
+      if (!concerns(callUrl)) return
+      setSummarizingCall(null)
+      setMessages((prev) => (prev.some((m) => m.id === message.id) ? prev : [...prev, message]))
+    }
+    const onFailed = (e: Event) => {
+      const { callUrl, error } = (e as CustomEvent<{ callUrl: string; error: string }>).detail
+      if (!concerns(callUrl)) return
+      setSummarizingCall(null)
+      setCallError(error)
+    }
+    window.addEventListener(SUMMARY_PENDING_EVENT, onPending)
+    window.addEventListener(SUMMARY_READY_EVENT, onReady)
+    window.addEventListener(SUMMARY_FAILED_EVENT, onFailed)
+    return () => {
+      window.removeEventListener(SUMMARY_PENDING_EVENT, onPending)
+      window.removeEventListener(SUMMARY_READY_EVENT, onReady)
+      window.removeEventListener(SUMMARY_FAILED_EVENT, onFailed)
+    }
+  }, [messages])
+
+  async function generateSummary(callUrl: string) {
+    setCallError(null)
+    setSummarizingCall(callUrl)
+    try {
+      const message = await messagesClient.generateCallSummary(callUrl)
+      setMessages((prev) => [...prev, message])
+      refreshConversations()
+    } catch (err) {
+      setCallError(err instanceof Error ? err.message : 'Impossible de générer le compte rendu')
+    } finally {
+      setSummarizingCall(null)
+    }
+  }
+
+  async function joinCall(callUrl: string) {
+    setCallError(null)
+    try {
+      openCall(await messagesClient.joinCall(callUrl))
+    } catch (err) {
+      setCallError(err instanceof Error ? err.message : "Impossible de rejoindre l'appel")
+    }
+  }
+
   /** Arrête l'enregistrement et passe en aperçu (réécoute avant envoi). */
   async function stopToPreview() {
     const recording = await recorder.stop()
@@ -234,6 +314,14 @@ export function ConversationThread({ target, name, onBack, initialContent }: Con
             </p>
           )}
         </div>
+        <button
+          onClick={startCall}
+          className="w-8 h-8 shrink-0 flex items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-indigo-600 transition-colors"
+          aria-label="Lancer un appel visio"
+          title="Lancer un appel visio"
+        >
+          <Video size={17} />
+        </button>
         {group && (
           <button
             onClick={() => setSettingsOpen((o) => !o)}
@@ -304,11 +392,22 @@ export function ConversationThread({ target, name, onBack, initialContent }: Con
                       )
                     )}
                     <div
-                      className={`min-w-0 rounded-2xl text-sm shadow-sm ${m.attachment ? 'p-1.5 w-[75%] max-w-[18rem]' : 'px-3 py-2'} ${m.audio_url ? 'w-[85%] max-w-[16rem]' : m.attachment ? '' : 'max-w-[80%]'} ${
+                      className={`min-w-0 rounded-2xl text-sm shadow-sm ${m.attachment ? 'p-1.5 w-[75%] max-w-[18rem]' : 'px-3 py-2'} ${m.call_summary ? 'w-[75%] max-w-[18rem]' : m.audio_url ? 'w-[85%] max-w-[16rem]' : m.attachment ? '' : 'max-w-[80%]'} ${
                         isMine ? 'bg-indigo-600 text-white rounded-br-md' : 'bg-white text-gray-900 rounded-bl-md'
                       }`}
                     >
-                      {m.audio_url ? (
+                      {m.call_summary ? (
+                        <div className="space-y-2 py-0.5">
+                          <p className="flex items-center gap-1.5 font-semibold"><Sparkles size={15} /> Résumé de la réunion</p>
+                          {m.call_summary.titre && <p className={`text-xs ${isMine ? 'text-indigo-100' : 'text-gray-500'}`}>{m.call_summary.titre}</p>}
+                          <button
+                            onClick={() => setOpenSummaryId(m.id)}
+                            className={`w-full rounded-full px-3 py-1.5 text-xs font-semibold ${isMine ? 'bg-white text-indigo-600 hover:bg-indigo-50' : 'bg-indigo-600 text-white hover:bg-indigo-500'}`}
+                          >
+                            Voir le résumé de la réunion
+                          </button>
+                        </div>
+                      ) : m.audio_url ? (
                         <VoiceMessagePlayer src={m.audio_url} duration={m.audio_duration ?? 0} isMine={isMine} />
                       ) : m.attachment ? (
                         <>
@@ -334,6 +433,41 @@ export function ConversationThread({ target, name, onBack, initialContent }: Con
                           </button>
                           {captionOf(m) && <p className="px-1.5 pt-1.5 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{captionOf(m)}</p>}
                         </>
+                      ) : m.call_url ? (
+                        <div className="flex items-center gap-3 py-0.5">
+                          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${isMine ? 'bg-white/20' : 'bg-indigo-600/10 text-indigo-600'}`}>
+                            <Video size={17} />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium">Appel visio</p>
+                            <p className={`text-[11px] ${isMine ? 'text-indigo-100' : 'text-gray-500'}`}>
+                              {summarizingCall === m.call_url
+                                ? 'Résumé de la réunion en préparation…'
+                                : isCallOver(m.created_at)
+                                ? 'Appel terminé'
+                                : isMine ? 'Vous avez lancé un appel' : `${isGroup ? m.sender_first_name ?? 'Un collègue' : name} vous invite`}
+                            </p>
+                          </div>
+                          {!summarizedCalls.has(m.call_url) && (
+                            <button
+                              onClick={() => generateSummary(m.call_url!)}
+                              disabled={summarizingCall !== null}
+                              className={`shrink-0 flex h-7 w-7 items-center justify-center rounded-full disabled:opacity-50 ${isMine ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'}`}
+                              title="Générer le résumé de la réunion (si le compte rendu IA était activé et qu'il n'est pas apparu)"
+                              aria-label="Générer le résumé de la réunion"
+                            >
+                              {summarizingCall === m.call_url ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                            </button>
+                          )}
+                          {!isCallOver(m.created_at) && (
+                            <button
+                              onClick={() => joinCall(m.call_url!)}
+                              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${isMine ? 'bg-white text-indigo-600 hover:bg-indigo-50' : 'bg-indigo-600 text-white hover:bg-indigo-500'}`}
+                            >
+                              Rejoindre
+                            </button>
+                          )}
+                        </div>
                       ) : (
                         <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{m.content}</p>
                       )}
@@ -347,11 +481,12 @@ export function ConversationThread({ target, name, onBack, initialContent }: Con
         )}
         <div ref={bottomRef} />
       </div>
+      {openSummaryId !== null && <MeetingSummaryModal messageId={openSummaryId} onClose={() => setOpenSummaryId(null)} />}
       {viewerIndex !== null && viewerIndex >= 0 && (
         <AttachmentViewer attachments={files} index={viewerIndex} onIndexChange={setViewerIndex} onClose={() => setViewerIndex(null)} />
       )}
 
-      {(recorder.error || fileError) && <p className="px-4 pt-2 text-[11px] text-red-600 bg-white">{recorder.error || fileError}</p>}
+      {(recorder.error || fileError || callError) && <p className="px-4 pt-2 text-[11px] text-red-600 bg-white">{recorder.error || fileError || callError}</p>}
       {pendingFile && (
         <div className="flex items-center gap-3 border-t border-gray-200 bg-white px-4 pt-3">
           {pendingFile.previewUrl ? (
