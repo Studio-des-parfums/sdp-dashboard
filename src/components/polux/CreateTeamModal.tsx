@@ -63,7 +63,7 @@ export function CreateTeamModal({ open, onClose, onCreated }: CreateTeamModalPro
         {error && <div className="rounded-lg border border-red-200 bg-red-50/30 p-3 text-sm text-red-700">{error}</div>}
         <div className="space-y-2">
           <Label>Nom de l'équipe</Label>
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Design" />
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Graphisme" />
         </div>
         <div className="space-y-2">
           <Label>Couleur</Label>

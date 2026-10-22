@@ -12,8 +12,13 @@ export const mockPoluxTeams: PoluxTeam[] = [
   { id: 1, slug: 'informatique', name: 'Informatique', color: '#6366f1', member_ids: [1, 2, 3], is_official: true, end_date: null },
   { id: 2, slug: 'marketing', name: 'Marketing', color: '#f59e0b', member_ids: [4, 5], is_official: false, end_date: null },
   { id: 3, slug: 'support', name: 'Support', color: '#14b8a6', member_ids: [2, 5], is_official: false, end_date: null },
-  { id: 4, slug: 'design', name: 'Design', color: '#ec4899', member_ids: [4], is_official: true, end_date: null },
+  { id: 4, slug: 'graphisme', name: 'Graphisme', color: '#ec4899', member_ids: [4], is_official: true, end_date: null },
   { id: 5, slug: 'logistique', name: 'Logistique', color: '#22c55e', member_ids: [3], is_official: true, end_date: null },
+  { id: 6, slug: 'communication-marketing', name: 'Communication/Marketing', color: '#f59e0b', member_ids: [], is_official: true, end_date: null },
+  { id: 7, slug: 'laboratoire', name: 'Laboratoire', color: '#06b6d4', member_ids: [], is_official: true, end_date: null },
+  { id: 8, slug: 'accueil', name: 'Accueil', color: '#a855f7', member_ids: [], is_official: true, end_date: null },
+  { id: 9, slug: 'comptabilite-finance', name: 'Comptabilité/Finance', color: '#64748b', member_ids: [], is_official: true, end_date: null },
+  { id: 10, slug: 'commercial', name: 'Commercial', color: '#ef4444', member_ids: [], is_official: true, end_date: null },
 ]
 
 function iso(daysFromNow: number): string {

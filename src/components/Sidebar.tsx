@@ -134,7 +134,16 @@ export function Sidebar(props: SidebarProps) {
         className={`relative w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left ${isActive ? 'bg-indigo-600/10 text-indigo-600 border-r-2 border-indigo-400' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}
         title={collapsed && !mobileOpen ? s.name : undefined}
       >
-        <Icon size={18} className="shrink-0" />
+        {s.color ? (
+          <span
+            className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded text-[10px] font-bold text-white"
+            style={{ backgroundColor: s.color }}
+          >
+            {s.name.charAt(0).toUpperCase()}
+          </span>
+        ) : (
+          <Icon size={18} className="shrink-0" />
+        )}
         {isTextShown && <span className="truncate">{s.name}</span>}
         {!!badge && (
           <span className={`shrink-0 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 ${collapsed && !mobileOpen ? 'absolute top-1.5 right-1.5' : 'ml-auto'}`}>

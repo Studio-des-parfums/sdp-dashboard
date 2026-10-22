@@ -36,6 +36,8 @@ export interface DashboardSection {
   id: string
   name: string
   icon: string
+  /** Couleur d'accent (ex: équipe Polux) — remplace l'icône par une pastille colorée. */
+  color?: string
   metricIds: number[]
   chartIds: number[]
 }

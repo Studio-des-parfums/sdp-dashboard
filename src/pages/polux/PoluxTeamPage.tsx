@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { poluxApi } from '../../api/poluxClient'
 import type { PoluxTask, PoluxTeam, PoluxUserRef } from '../../types/polux'
+import { tasksForTeam } from '../../components/polux/teamTasks'
+import { useTaskHistory } from '../../components/polux/useTaskHistory'
 import { TaskListView } from '../../components/polux/TaskListView'
 import { TaskModal } from '../../components/polux/TaskModal'
 import { CreateTaskModal } from '../../components/polux/CreateTaskModal'
@@ -36,7 +38,7 @@ export default function PoluxTeamPage({ teamSlug, isAdmin = false, onDeleted }: 
   }, [])
 
   const team = useMemo(() => teams.find((t) => t.slug === teamSlug) ?? null, [teams, teamSlug])
-  const teamTasks = useMemo(() => team ? tasks.filter((t) => t.team_id === team.id) : [], [tasks, team])
+  const teamTasks = useMemo(() => team ? tasksForTeam(tasks, team) : [], [tasks, team])
   const activeTeamTasks = useMemo(() => teamTasks.filter((t) => t.status !== 'termine'), [teamTasks])
   const teamMembers = useMemo(() => team ? users.filter((u) => team.member_ids.includes(u.id)) : [], [users, team])
   const nonMembers = useMemo(() => team ? users.filter((u) => !team.member_ids.includes(u.id)) : [], [users, team])
@@ -62,6 +64,8 @@ export default function PoluxTeamPage({ teamSlug, isAdmin = false, onDeleted }: 
   function handleCreated(task: PoluxTask) {
     setTasks((prev) => [...prev, task])
   }
+
+  const taskHistory = useTaskHistory(tasks, selectedTask, setSelectedTask)
 
   function handleUpdated(updated: PoluxTask) {
     setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)))
@@ -124,8 +128,13 @@ export default function PoluxTeamPage({ teamSlug, isAdmin = false, onDeleted }: 
             </div>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {teamMembers.map((m) => (
-                <span key={m.id} className="inline-flex items-center rounded-full bg-gray-200 px-2.5 py-1 text-xs font-medium text-gray-700">
+                <span
+                  key={m.id}
+                  className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${m.id === team.manager_user_id ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+                  title={m.id === team.manager_user_id ? "Responsable de l'équipe" : undefined}
+                >
                   {m.first_name} {m.last_name}
+                  {m.id === team.manager_user_id && <span className="ml-1 opacity-80">· Responsable</span>}
                 </span>
               ))}
               {teamMembers.length === 0 && <span className="text-sm text-gray-500">Aucun membre</span>}
@@ -187,12 +196,18 @@ export default function PoluxTeamPage({ teamSlug, isAdmin = false, onDeleted }: 
       <CreateTaskModal
         open={createOpen}
         teamId={team.id}
+        teams={teams}
         users={users}
         existingProjects={activeProjects}
         onClose={() => setCreateOpen(false)}
         onCreated={handleCreated}
+        onTasksChanged={setTasks}
       />
-      <TaskModal task={selectedTask} users={users} existingProjects={activeProjects} onClose={() => setSelectedTask(null)} onUpdated={handleUpdated} onDeleted={handleDeleted} />
+      <TaskModal task={selectedTask} users={users} teams={teams} existingProjects={activeProjects} onClose={taskHistory.close} onUpdated={handleUpdated} onDeleted={handleDeleted} onTasksChanged={setTasks}
+        onOpenTask={taskHistory.openLinked}
+        previousTask={taskHistory.previous}
+        onBack={taskHistory.back}
+      />
       <TeamMembersModal
         open={membersOpen}
         teamId={team.id}

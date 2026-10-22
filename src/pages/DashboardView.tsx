@@ -122,7 +122,7 @@ export function DashboardView() {
               ...d.sections.filter((s) => s.id !== 'leads' || hasAccess(leadsAccessIds)),
               ...teams
                 .filter((team) => hasAccess(team.member_ids))
-                .map((team) => ({ id: `team-${team.slug}`, name: team.name, icon: 'Users', metricIds: [], chartIds: [] })),
+                .map((team) => ({ id: `team-${team.slug}`, name: team.name, icon: 'Users', color: team.color, metricIds: [], chartIds: [] })),
             ],
           }
         }
@@ -453,7 +453,7 @@ export function DashboardView() {
           onCreated={(team) => {
             setDashboard((prev) => prev && {
               ...prev,
-              sections: [...prev.sections, { id: `team-${team.slug}`, name: team.name, icon: 'Users', metricIds: [], chartIds: [] }],
+              sections: [...prev.sections, { id: `team-${team.slug}`, name: team.name, icon: 'Users', color: team.color, metricIds: [], chartIds: [] }],
             })
             setActiveSection(`team-${team.slug}`)
           }}

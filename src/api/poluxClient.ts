@@ -84,6 +84,7 @@ export interface TaskPatch {
   title?: string
   description?: string
   project_name?: string | null
+  lead_id?: number | null
   assigned_to_ids?: number[]
   priority?: PoluxTask['priority']
   color?: string | null
@@ -94,7 +95,9 @@ export interface TaskPatch {
 
 export interface TaskInput {
   project_name?: string | null
-  team_id: number
+  lead_id?: number | null
+  /** Null : tâche sans équipe, assignée directement à des personnes. */
+  team_id: number | null
   title: string
   description: string
   assigned_to_ids: number[]
@@ -106,6 +109,7 @@ export interface TaskInput {
 
 /** Tâche personnelle : pas d'équipe, visible uniquement par qui l'a créée. */
 export interface PersonalTaskInput {
+  lead_id?: number | null
   title: string
   description: string
   priority: PoluxTask['priority']
@@ -134,6 +138,18 @@ export interface LeadInput {
 
 export type LeadPatch = Partial<LeadInput>
 
+/** Équipe et/ou personnes à qui une étape de checklist est confiée (les deux vides : simple case à cocher). */
+export interface ChecklistAssignment {
+  team_id: number | null
+  assigned_to_ids: number[]
+}
+
+/** Échéance et priorité propres à une étape — synchronisées avec sa tâche liée si elle est confiée. */
+export interface ChecklistStepMeta {
+  deadline?: string | null
+  priority?: PoluxTask['priority'] | null
+}
+
 export const poluxApi = {
   async getTeams(): Promise<PoluxTeam[]> {
     if (USE_MOCK) return delay([...teams])
@@ -152,7 +168,8 @@ export const poluxApi = {
     return request('/teams', { method: 'POST', body: JSON.stringify(input) })
   },
 
-  async updateTeam(teamId: number, patch: { end_date?: string | null }): Promise<PoluxTeam> {
+  /** end_date : tout utilisateur ; name / color / manager_user_id : admin uniquement. */
+  async updateTeam(teamId: number, patch: { end_date?: string | null; name?: string; color?: string; manager_user_id?: number | null }): Promise<PoluxTeam> {
     if (USE_MOCK) {
       const index = teams.findIndex((t) => t.id === teamId)
       if (index === -1) throw new Error('Équipe introuvable')
@@ -161,6 +178,16 @@ export const poluxApi = {
       return delay(updated)
     }
     return request(`/teams/${teamId}`, { method: 'PATCH', body: JSON.stringify(patch) })
+  },
+
+  async createOfficialTeam(input: { name: string; color: string; manager_user_id: number | null }): Promise<PoluxTeam> {
+    if (USE_MOCK) {
+      const slug = input.name.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+      const team: PoluxTeam = { id: nextTeamId++, slug, name: input.name.trim(), color: input.color, manager_user_id: input.manager_user_id, member_ids: input.manager_user_id ? [input.manager_user_id] : [], is_official: true, end_date: null }
+      teams = [...teams, team]
+      return delay(team)
+    }
+    return request('/teams/official', { method: 'POST', body: JSON.stringify(input) })
   },
 
   async addTeamMember(teamId: number, userId: number): Promise<void> {
@@ -388,52 +415,57 @@ export const poluxApi = {
     return request(`/attachments/${attachmentId}`, { method: 'DELETE' })
   },
 
-  async addChecklistItem(taskId: number, label: string): Promise<PoluxTask> {
+  // Les opérations de checklist peuvent créer/modifier d'autres tâches (étapes confiées à une
+  // équipe ou à des personnes) : elles renvoient donc la liste complète des tâches à jour.
+  async addChecklistItem(taskId: number, label: string, options: Partial<ChecklistAssignment> & ChecklistStepMeta = {}): Promise<PoluxTask[]> {
     if (USE_MOCK) {
       const index = tasks.findIndex((t) => t.id === taskId)
       if (index === -1) throw new Error('Tâche introuvable')
       const item: PoluxChecklistItem = { id: nextChecklistItemId++, task_id: taskId, label, done: false, created_at: new Date().toISOString() }
       const updated = syncTaskStatusWithChecklist({ ...tasks[index], checklist: [...tasks[index].checklist, item] })
       tasks = [...tasks.slice(0, index), updated, ...tasks.slice(index + 1)]
-      return delay(updated)
+      return delay([...tasks])
     }
-    await request(`/tasks/${taskId}/checklist`, { method: 'POST', body: JSON.stringify({ label }) })
-    const freshTasks = await poluxApi.getTasks()
-    const updated = freshTasks.find((t) => t.id === taskId)
-    if (!updated) throw new Error('Tâche introuvable après ajout')
-    return updated
+    await request(`/tasks/${taskId}/checklist`, { method: 'POST', body: JSON.stringify({ label, ...options }) })
+    return poluxApi.getTasks()
   },
 
-  async toggleChecklistItem(taskId: number, itemId: number, done: boolean): Promise<PoluxTask> {
+  async toggleChecklistItem(taskId: number, itemId: number, done: boolean): Promise<PoluxTask[]> {
     if (USE_MOCK) {
       const index = tasks.findIndex((t) => t.id === taskId)
       if (index === -1) throw new Error('Tâche introuvable')
       const checklist = tasks[index].checklist.map((c) => (c.id === itemId ? { ...c, done } : c))
       const updated = syncTaskStatusWithChecklist({ ...tasks[index], checklist })
       tasks = [...tasks.slice(0, index), updated, ...tasks.slice(index + 1)]
-      return delay(updated)
+      return delay([...tasks])
     }
     await request(`/tasks/${taskId}/checklist/${itemId}`, { method: 'PUT', body: JSON.stringify({ done }) })
-    const freshTasks = await poluxApi.getTasks()
-    const updated = freshTasks.find((t) => t.id === taskId)
-    if (!updated) throw new Error('Tâche introuvable après mise à jour')
-    return updated
+    return poluxApi.getTasks()
   },
 
-  async deleteChecklistItem(taskId: number, itemId: number): Promise<PoluxTask> {
+  async updateChecklistItemMeta(taskId: number, itemId: number, meta: ChecklistStepMeta): Promise<PoluxTask[]> {
+    if (USE_MOCK) return delay([...tasks])
+    await request(`/tasks/${taskId}/checklist/${itemId}`, { method: 'PUT', body: JSON.stringify(meta) })
+    return poluxApi.getTasks()
+  },
+
+  async assignChecklistItem(taskId: number, itemId: number, assignment: ChecklistAssignment): Promise<PoluxTask[]> {
+    if (USE_MOCK) return delay([...tasks])
+    await request(`/tasks/${taskId}/checklist/${itemId}`, { method: 'PUT', body: JSON.stringify(assignment) })
+    return poluxApi.getTasks()
+  },
+
+  async deleteChecklistItem(taskId: number, itemId: number): Promise<PoluxTask[]> {
     if (USE_MOCK) {
       const index = tasks.findIndex((t) => t.id === taskId)
       if (index === -1) throw new Error('Tâche introuvable')
       const checklist = tasks[index].checklist.filter((c) => c.id !== itemId)
       const updated = syncTaskStatusWithChecklist({ ...tasks[index], checklist })
       tasks = [...tasks.slice(0, index), updated, ...tasks.slice(index + 1)]
-      return delay(updated)
+      return delay([...tasks])
     }
     await request(`/tasks/${taskId}/checklist/${itemId}`, { method: 'DELETE' })
-    const freshTasks = await poluxApi.getTasks()
-    const updated = freshTasks.find((t) => t.id === taskId)
-    if (!updated) throw new Error('Tâche introuvable après suppression')
-    return updated
+    return poluxApi.getTasks()
   },
 
   async getLeads(): Promise<PoluxLead[]> {

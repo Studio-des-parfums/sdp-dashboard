@@ -16,6 +16,8 @@ export interface PoluxTeam {
   member_ids: number[]
   /** Équipe officielle (ex: Informatique) — ne peut pas être supprimée, même par qui l'a créée. */
   is_official: boolean
+  /** Responsable de l'équipe (toujours membre de l'espace). */
+  manager_user_id?: number | null
   /** Date de fin pour les espaces créés à la volée (null pour les équipes officielles). À expiration : proposer de prolonger ou supprimer. */
   end_date: string | null
 }
@@ -31,7 +33,10 @@ export interface PoluxAttachment {
   id: number
   task_id: number
   filename: string
+  /** URL d'aperçu (affichage dans le navigateur). */
   url: string
+  /** URL qui force le téléchargement sous le nom d'origine. */
+  download_url?: string
   content_type: string
   size: number
   uploaded_by: number
@@ -53,12 +58,28 @@ export interface PoluxChecklistItem {
   task_id: number
   label: string
   done: boolean
+  deadline?: string | null
+  priority?: PoluxTaskPriority | null
   created_at: string
+  /** Tâche créée quand l'étape est confiée à une équipe ou à des personnes — son statut pilote la case. */
+  linked_task?: { id: number; team_id: number | null; status: PoluxTaskStatus; assigned_to_ids: number[] } | null
+}
+
+/** Client (lead/prospect) rattaché à une tâche — champs utiles à l'affichage uniquement. */
+export interface PoluxTaskLead {
+  id: number
+  first_name: string
+  last_name: string
+  company: string | null
 }
 
 export interface PoluxTask {
   id: number
   project_name: string | null
+  lead_id?: number | null
+  lead?: PoluxTaskLead | null
+  /** Si la tâche est une étape confiée depuis la checklist d'une autre tâche. */
+  parent_step?: { task_id: number; title: string } | null
   /** Null pour une tâche personnelle (voir owner_id) — sinon l'équipe qui la porte. */
   team_id: number | null
   title: string

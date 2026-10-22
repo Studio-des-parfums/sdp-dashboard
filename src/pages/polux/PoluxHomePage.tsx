@@ -1,14 +1,41 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ListTodo, AlertTriangle, LayoutGrid, ChevronRight, CheckCircle2 } from 'lucide-react'
+import { ListTodo, AlertTriangle, LayoutGrid, ChevronRight, ChevronDown, CheckCircle2 } from 'lucide-react'
 import { poluxApi } from '../../api/poluxClient'
 import type { PoluxTask, PoluxTeam, PoluxUserRef } from '../../types/polux'
 import { TaskListView } from '../../components/polux/TaskListView'
+import { tasksForTeam } from '../../components/polux/teamTasks'
+import { useTaskHistory } from '../../components/polux/useTaskHistory'
 import { TaskModal } from '../../components/polux/TaskModal'
 import { CompletedTasksModal } from '../../components/polux/CompletedTasksModal'
-import { CreatePersonalTaskModal } from '../../components/polux/CreatePersonalTaskModal'
+import { CreateTaskModal } from '../../components/polux/CreateTaskModal'
 import { Button } from '../../components/ui/lylo/Button'
 import { useAuth } from '../../contexts/AuthContext'
 import { isOverdue } from '../../components/polux/priority'
+
+// Section repliable de "Mon espace" ; l'état ouvert/fermé est mémorisé dans ce navigateur.
+function useCollapsed(key: string): [boolean, () => void] {
+  const storageKey = `polux:collapsed:${key}`
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem(storageKey) === '1' } catch { return false }
+  })
+  function toggle() {
+    setCollapsed((c) => {
+      try { localStorage.setItem(storageKey, c ? '0' : '1') } catch { /* stockage indisponible */ }
+      return !c
+    })
+  }
+  return [collapsed, toggle]
+}
+
+function SectionToggle({ title, count, collapsed, onToggle }: { title: string; count: number; collapsed: boolean; onToggle: () => void }) {
+  return (
+    <button type="button" onClick={onToggle} className="flex items-center gap-1.5 text-sm font-semibold text-gray-900 hover:text-indigo-600">
+      {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+      {title}
+      <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[11px] font-medium text-gray-600">{count}</span>
+    </button>
+  )
+}
 
 interface PoluxHomePageProps {
   onOpenTeam?: (teamSlug: string) => void
@@ -22,9 +49,11 @@ export default function PoluxHomePage({ onOpenTeam, isAdmin = false }: PoluxHome
   const [users, setUsers] = useState<PoluxUserRef[]>([])
   const [selectedTask, setSelectedTask] = useState<PoluxTask | null>(null)
   const [completedOpen, setCompletedOpen] = useState(false)
-  const [createPersonalOpen, setCreatePersonalOpen] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [projectFilter, setProjectFilter] = useState('tous')
+  const [myTasksCollapsed, toggleMyTasks] = useCollapsed('mes-taches')
+  const [assignedCollapsed, toggleAssigned] = useCollapsed('taches-assignees')
 
   useEffect(() => {
     Promise.all([poluxApi.getTeams(), poluxApi.getTasks(), poluxApi.getUsers()])
@@ -36,6 +65,24 @@ export default function PoluxHomePage({ onOpenTeam, isAdmin = false }: PoluxHome
   const myTasks = useMemo(
     () => currentUser ? tasks.filter((t) => t.assigned_to_ids.includes(currentUser.id) || t.owner_id === currentUser.id) : [],
     [tasks, currentUser]
+  )
+  // Tâches que j'ai confiées à une équipe ou à d'autres personnes (hors tâches perso), pour en suivre le statut.
+  const tasksAssignedByMe = useMemo(
+    () => currentUser
+      ? tasks.filter((t) => t.created_by === currentUser.id && t.owner_id == null && (t.team_id != null || t.assigned_to_ids.some((id) => id !== currentUser.id)))
+      : [],
+    [tasks, currentUser]
+  )
+  // Étapes confiées que leurs assignés ont terminées : elles attendent ma validation.
+  const activeTasksAssignedByMe = useMemo(() => tasksAssignedByMe.filter((t) => t.status !== 'termine'), [tasksAssignedByMe])
+  // Les tâches terminées (les miennes et celles que j'ai assignées) restent consultables via "Tâches terminées".
+  const myAndAssignedTasks = useMemo(
+    () => [...myTasks, ...tasksAssignedByMe.filter((t) => !myTasks.includes(t))],
+    [myTasks, tasksAssignedByMe]
+  )
+  const tasksToValidate = useMemo(
+    () => tasksAssignedByMe.filter((t) => t.parent_step && t.status === 'en_revision'),
+    [tasksAssignedByMe]
   )
   const myActiveTasks = useMemo(() => myTasks.filter((t) => t.status !== 'termine'), [myTasks])
   const myProjects = useMemo(
@@ -60,7 +107,7 @@ export default function PoluxHomePage({ onOpenTeam, isAdmin = false }: PoluxHome
 
   const teamStats = useMemo(() => {
     return visibleTeams.map((team) => {
-      const teamTasks = tasks.filter((t) => t.team_id === team.id)
+      const teamTasks = tasksForTeam(tasks, team)
       const remaining = teamTasks.filter((t) => t.status !== 'termine').length
       const overdue = teamTasks.filter((t) => isOverdue(t.deadline, t.status)).length
       return { team, remaining, overdue }
@@ -73,6 +120,8 @@ export default function PoluxHomePage({ onOpenTeam, isAdmin = false }: PoluxHome
   function handleCreated(task: PoluxTask) {
     setTasks((prev) => [...prev, task])
   }
+
+  const taskHistory = useTaskHistory(tasks, selectedTask, setSelectedTask)
 
   function handleUpdated(updated: PoluxTask) {
     setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)))
@@ -128,13 +177,13 @@ export default function PoluxHomePage({ onOpenTeam, isAdmin = false }: PoluxHome
 
       <div>
         <h3 className="mb-3 text-sm font-semibold text-gray-900">Espaces</h3>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-3 pt-1">
           {teamStats.map(({ team, remaining, overdue }) => (
             <button
               key={team.id}
               type="button"
               onClick={() => onOpenTeam?.(team.slug)}
-              className="group flex flex-col gap-3 rounded-xl border border-gray-200 bg-gray-100 p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-md"
+              className="group flex w-64 shrink-0 flex-col gap-3 rounded-xl border border-gray-200 bg-gray-100 p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-md"
               style={{ borderTopWidth: '3px', borderTopColor: team.color }}
             >
               <div className="flex items-center justify-between">
@@ -148,6 +197,10 @@ export default function PoluxHomePage({ onOpenTeam, isAdmin = false }: PoluxHome
                   <div>
                     <p className="text-sm font-semibold text-gray-900">{team.name}</p>
                     {team.is_official && <p className="text-[11px] font-medium text-indigo-600">Officielle</p>}
+                    {team.manager_user_id != null && (() => {
+                      const manager = users.find((u) => u.id === team.manager_user_id)
+                      return manager ? <p className="text-[11px] text-gray-500">Resp. {manager.first_name} {manager.last_name}</p> : null
+                    })()}
                   </div>
                 </div>
                 <ChevronRight size={16} className="text-gray-400 transition-transform group-hover:translate-x-0.5" />
@@ -179,19 +232,36 @@ export default function PoluxHomePage({ onOpenTeam, isAdmin = false }: PoluxHome
         </div>
       </div>
 
+      {tasksToValidate.length > 0 && (
+        <div className="space-y-2 rounded-xl border border-amber-300 bg-amber-50 p-4">
+          <h3 className="text-sm font-semibold text-amber-800">À valider ({tasksToValidate.length})</h3>
+          {tasksToValidate.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setSelectedTask(t)}
+              className="flex w-full items-center justify-between gap-3 rounded-lg bg-white px-3 py-2 text-left text-sm transition-colors hover:bg-amber-100"
+            >
+              <span className="font-medium text-gray-900">{t.title}</span>
+              <span className="text-xs text-gray-500">étape de « {t.parent_step!.title} »</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-900">Mes tâches</h3>
+          <SectionToggle title="Mes tâches" count={visibleMyTasks.length} collapsed={myTasksCollapsed} onToggle={toggleMyTasks} />
           <div className="flex gap-2">
             <Button type="button" onClick={() => setCompletedOpen(true)}>
               Tâches terminées
             </Button>
-            <Button variant="primary" type="button" onClick={() => setCreatePersonalOpen(true)}>
-              Nouvelle tâche personnelle
+            <Button variant="primary" type="button" onClick={() => setCreateOpen(true)}>
+              Nouvelle tâche
             </Button>
           </div>
         </div>
-        {myProjects.length > 0 && (
+        {!myTasksCollapsed && myProjects.length > 0 && (
           <select
             value={projectFilter}
             onChange={(e) => setProjectFilter(e.target.value)}
@@ -201,14 +271,35 @@ export default function PoluxHomePage({ onOpenTeam, isAdmin = false }: PoluxHome
             {myProjects.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
         )}
-        <TaskListView tasks={visibleMyTasks} users={users} teams={teams} showProjectColumn showTeamColumn onOpenTask={setSelectedTask} />
+        {!myTasksCollapsed && (
+          <TaskListView tasks={visibleMyTasks} users={users} teams={teams} showProjectColumn showTeamColumn onOpenTask={setSelectedTask} />
+        )}
       </div>
 
-      <TaskModal task={selectedTask} users={users} existingProjects={activeProjects} onClose={() => setSelectedTask(null)} onUpdated={handleUpdated} onDeleted={handleDeleted} />
-      <CreatePersonalTaskModal open={createPersonalOpen} onClose={() => setCreatePersonalOpen(false)} onCreated={handleCreated} />
+      <div className="space-y-3">
+        <SectionToggle title="Tâches que j'ai assignées" count={activeTasksAssignedByMe.length} collapsed={assignedCollapsed} onToggle={toggleAssigned} />
+        {!assignedCollapsed && (
+          <TaskListView tasks={activeTasksAssignedByMe} users={users} teams={teams} showProjectColumn showTeamColumn onOpenTask={setSelectedTask} />
+        )}
+      </div>
+
+      <TaskModal task={selectedTask} users={users} teams={teams} existingProjects={activeProjects} onClose={taskHistory.close} onUpdated={handleUpdated} onDeleted={handleDeleted} onTasksChanged={setTasks}
+        onOpenTask={taskHistory.openLinked}
+        previousTask={taskHistory.previous}
+        onBack={taskHistory.back}
+      />
+      <CreateTaskModal
+        open={createOpen}
+        teams={teams}
+        users={users}
+        existingProjects={activeProjects}
+        onClose={() => setCreateOpen(false)}
+        onCreated={handleCreated}
+        onTasksChanged={setTasks}
+      />
       <CompletedTasksModal
         open={completedOpen}
-        tasks={myTasks}
+        tasks={myAndAssignedTasks}
         users={users}
         teams={teams}
         showProjectColumn

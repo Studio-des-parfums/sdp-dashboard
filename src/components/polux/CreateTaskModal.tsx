@@ -3,41 +3,75 @@ import { Button } from '../ui/lylo/Button'
 import { Input } from '../ui/lylo/Input'
 import { Label } from '../ui/lylo/Label'
 import { Modal } from '../ui/lylo/Modal'
-import { poluxApi } from '../../api/poluxClient'
-import type { PoluxTask, PoluxUserRef } from '../../types/polux'
+import { poluxApi, type ChecklistAssignment } from '../../api/poluxClient'
+import type { PoluxTask, PoluxTeam, PoluxUserRef } from '../../types/polux'
+import { useAuth } from '../../contexts/AuthContext'
 import { formatDeadline, PRIORITY_LABEL } from './priority'
 import { AssigneePicker } from './AssigneePicker'
 import { ColorPicker } from './ColorPicker'
 import { ProjectPicker } from './ProjectPicker'
+import { LeadPicker } from './LeadPicker'
+import { toggleButtonClass } from './toggleButton'
+import { StepMetaControls, type StepMeta } from './StepMetaControls'
 
 interface CreateTaskModalProps {
   open: boolean
-  teamId: number
+  /** Équipe imposée (page d'une équipe). Sinon, l'équipe se choisit dans « Assigné à » parmi `teams`. */
+  teamId?: number
+  teams?: PoluxTeam[]
   users: PoluxUserRef[]
   existingProjects?: string[]
   onClose: () => void
   onCreated: (task: PoluxTask) => void
+  /** Liste complète rechargée quand des étapes confiées ont créé d'autres tâches. */
+  onTasksChanged?: (tasks: PoluxTask[]) => void
+}
+
+interface PendingStep extends ChecklistAssignment, StepMeta {
+  label: string
 }
 
 function emptyForm() {
-  return { title: '', description: '', projectName: '', assignedToIds: [] as number[], priority: 'moyenne' as PoluxTask['priority'], color: null as string | null, startDate: '', deadline: '' }
+  return { title: '', description: '', projectName: '', leadId: null as number | null, assignedToIds: [] as number[], priority: 'moyenne' as PoluxTask['priority'], color: null as string | null, startDate: '', deadline: '' }
 }
 
-export function CreateTaskModal({ open, teamId, users, existingProjects = [], onClose, onCreated }: CreateTaskModalProps) {
+export function CreateTaskModal({ open, teamId, teams = [], users, existingProjects = [], onClose, onCreated, onTasksChanged }: CreateTaskModalProps) {
   const [form, setForm] = useState(emptyForm())
+  const { sdpUser } = useAuth()
+  const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null)
+  const effectiveTeamId = teamId ?? selectedTeamId
   const [colorPickerOpen, setColorPickerOpen] = useState(false)
   const [dateMenuOpen, setDateMenuOpen] = useState(false)
   const [checklistOpen, setChecklistOpen] = useState(false)
+  const [leadOpen, setLeadOpen] = useState(false)
   const [checklistLabel, setChecklistLabel] = useState('')
-  const [pendingChecklist, setPendingChecklist] = useState<string[]>([])
+  const [pendingChecklist, setPendingChecklist] = useState<PendingStep[]>([])
   const [isBusy, setIsBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   function addPendingChecklistItem() {
     const label = checklistLabel.trim()
     if (!label) return
-    setPendingChecklist((prev) => [...prev, label])
+    setPendingChecklist((prev) => [...prev, { label, team_id: null, assigned_to_ids: [], deadline: null, priority: null }])
     setChecklistLabel('')
+  }
+
+  // Re-cliquer sur un bouton ouvert vide son champ et le referme.
+  function toggleChecklist() {
+    if (checklistOpen) {
+      setPendingChecklist([])
+      setChecklistLabel('')
+    }
+    setChecklistOpen((o) => !o)
+  }
+
+  function toggleLead() {
+    if (leadOpen) setForm((s) => ({ ...s, leadId: null }))
+    setLeadOpen((o) => !o)
+  }
+
+  function assignPendingStep(index: number, patch: Partial<ChecklistAssignment & StepMeta>) {
+    setPendingChecklist((prev) => prev.map((step, i) => (i === index ? { ...step, ...patch } : step)))
   }
 
   function removePendingChecklistItem(index: number) {
@@ -49,25 +83,41 @@ export function CreateTaskModal({ open, teamId, users, existingProjects = [], on
     setIsBusy(true)
     setError(null)
     try {
-      const task = await poluxApi.createTask({
-        team_id: teamId,
+      const common = {
+        lead_id: form.leadId,
         title: form.title.trim(),
         description: form.description.trim(),
-        project_name: form.projectName.trim() || null,
-        assigned_to_ids: form.assignedToIds,
         priority: form.priority,
         color: form.color,
         start_date: form.startDate ? new Date(form.startDate).toISOString() : null,
         deadline: form.deadline ? new Date(form.deadline).toISOString() : null,
-      })
+      }
+      // Sans équipe et assignée à personne d'autre que soi : tâche personnelle.
+      const myId = users.find((u) => u.email === sdpUser?.email)?.id
+      const isPersonal = effectiveTeamId == null && form.assignedToIds.every((id) => id === myId)
+      const task = isPersonal
+        ? await poluxApi.createPersonalTask(common)
+        : await poluxApi.createTask({
+            ...common,
+            team_id: effectiveTeamId,
+            project_name: form.projectName.trim() || null,
+            assigned_to_ids: form.assignedToIds,
+          })
       let finalTask = task
-      for (const label of pendingChecklist) {
-        finalTask = await poluxApi.addChecklistItem(task.id, label)
+      if (pendingChecklist.length > 0) {
+        let freshTasks: PoluxTask[] = []
+        for (const { label, ...options } of pendingChecklist) {
+          freshTasks = await poluxApi.addChecklistItem(task.id, label, options)
+        }
+        finalTask = freshTasks.find((t) => t.id === task.id) ?? task
+        onTasksChanged?.(freshTasks.filter((t) => t.id !== task.id))
       }
       onCreated(finalTask)
       setForm(emptyForm())
+      setSelectedTeamId(null)
       setPendingChecklist([])
       setChecklistOpen(false)
+      setLeadOpen(false)
       onClose()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur inconnue')
@@ -78,9 +128,11 @@ export function CreateTaskModal({ open, teamId, users, existingProjects = [], on
 
   function handleClose() {
     setForm(emptyForm())
+    setSelectedTeamId(null)
     setPendingChecklist([])
     setChecklistLabel('')
     setChecklistOpen(false)
+    setLeadOpen(false)
     setColorPickerOpen(false)
     setDateMenuOpen(false)
     setError(null)
@@ -92,7 +144,7 @@ export function CreateTaskModal({ open, teamId, users, existingProjects = [], on
       open={open}
       title="Nouvelle tâche"
       onClose={handleClose}
-      maxWidthClassName="max-w-xl"
+      maxWidthClassName="max-w-3xl"
       footer={
         <>
           <Button type="button" onClick={handleClose}>Annuler</Button>
@@ -128,15 +180,9 @@ export function CreateTaskModal({ open, teamId, users, existingProjects = [], on
         </div>
 
         <div className="-mt-1 flex flex-wrap items-center gap-2">
-          {!checklistOpen && (
-            <button
-              type="button"
-              onClick={() => setChecklistOpen(true)}
-              className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:border-indigo-400 hover:text-indigo-600"
-            >
-              + checklist
-            </button>
-          )}
+          <button type="button" onClick={toggleChecklist} className={toggleButtonClass(checklistOpen)}>
+            + checklist
+          </button>
 
           <div className="relative">
             <button
@@ -171,8 +217,27 @@ export function CreateTaskModal({ open, teamId, users, existingProjects = [], on
             )}
           </div>
 
-          <AssigneePicker compact users={users} selectedIds={form.assignedToIds} onChange={(ids) => setForm((s) => ({ ...s, assignedToIds: ids }))} />
+          <AssigneePicker
+            compact
+            users={users}
+            selectedIds={form.assignedToIds}
+            onChange={(ids) => setForm((s) => ({ ...s, assignedToIds: ids }))}
+            teams={teamId == null ? teams : undefined}
+            selectedTeamId={selectedTeamId}
+            onTeamChange={setSelectedTeamId}
+          />
+
+          <button type="button" onClick={toggleLead} className={toggleButtonClass(leadOpen)}>
+            + client
+          </button>
         </div>
+
+        {leadOpen && (
+          <div className="space-y-2">
+            <Label>Client</Label>
+            <LeadPicker value={form.leadId} onChange={(leadId) => setForm((s) => ({ ...s, leadId }))} />
+          </div>
+        )}
 
         <div className="space-y-2">
           <Label>Description</Label>
@@ -202,16 +267,21 @@ export function CreateTaskModal({ open, teamId, users, existingProjects = [], on
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>Checklist{pendingChecklist.length > 0 && ` (${pendingChecklist.length})`}</Label>
-              {pendingChecklist.length === 0 && (
-                <button type="button" onClick={() => setChecklistOpen(false)} className="text-xs text-gray-400 hover:text-gray-600">
-                  Annuler
-                </button>
-              )}
             </div>
             <div className="space-y-1">
-              {pendingChecklist.map((label, i) => (
-                <div key={i} className="group flex items-center gap-2 rounded-lg px-1 py-1 hover:bg-white/60">
-                  <span className="flex-1 text-sm text-gray-900">{label}</span>
+              {pendingChecklist.map((step, i) => (
+                <div key={i} className="group flex flex-wrap items-center gap-2 rounded-lg px-1 py-1 hover:bg-white/60">
+                  <span className="min-w-[8rem] flex-1 text-sm text-gray-900">{step.label}</span>
+                  <StepMetaControls deadline={step.deadline} priority={step.priority} onChange={(patch) => assignPendingStep(i, patch)} />
+                  <AssigneePicker
+                    iconOnly
+                    users={users}
+                    teams={teams}
+                    selectedTeamId={step.team_id}
+                    selectedIds={step.assigned_to_ids}
+                    onTeamChange={(team_id) => assignPendingStep(i, { team_id })}
+                    onChange={(assigned_to_ids) => assignPendingStep(i, { assigned_to_ids })}
+                  />
                   <button
                     type="button"
                     onClick={() => removePendingChecklistItem(i)}
