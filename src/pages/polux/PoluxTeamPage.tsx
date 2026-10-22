@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { poluxApi } from '../../api/poluxClient'
+import { poluxApi, POLUX_NOTIFICATION_EVENT } from '../../api/poluxClient'
 import type { PoluxTask, PoluxTeam, PoluxUserRef } from '../../types/polux'
 import { tasksForTeam } from '../../components/polux/teamTasks'
 import { useTaskHistory } from '../../components/polux/useTaskHistory'
@@ -66,6 +66,13 @@ export default function PoluxTeamPage({ teamSlug, isAdmin = false, onDeleted }: 
   }
 
   const taskHistory = useTaskHistory(tasks, selectedTask, setSelectedTask)
+
+  // Une notification Polux (tâche assignée, statut changé…) : on recharge les tâches sans bloquer l'écran.
+  useEffect(() => {
+    const reload = () => { poluxApi.getTasks().then(setTasks).catch(() => {}) }
+    window.addEventListener(POLUX_NOTIFICATION_EVENT, reload)
+    return () => window.removeEventListener(POLUX_NOTIFICATION_EVENT, reload)
+  }, [])
 
   function handleUpdated(updated: PoluxTask) {
     setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)))

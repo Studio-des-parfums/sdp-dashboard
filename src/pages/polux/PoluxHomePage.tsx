@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { ListTodo, AlertTriangle, LayoutGrid, ChevronRight, ChevronDown, CheckCircle2 } from 'lucide-react'
-import { poluxApi } from '../../api/poluxClient'
+import { poluxApi, POLUX_NOTIFICATION_EVENT } from '../../api/poluxClient'
 import type { PoluxTask, PoluxTeam, PoluxUserRef } from '../../types/polux'
 import { TaskListView } from '../../components/polux/TaskListView'
 import { tasksForTeam } from '../../components/polux/teamTasks'
@@ -55,11 +56,33 @@ export default function PoluxHomePage({ onOpenTeam, isAdmin = false }: PoluxHome
   const [myTasksCollapsed, toggleMyTasks] = useCollapsed('mes-taches')
   const [assignedCollapsed, toggleAssigned] = useCollapsed('taches-assignees')
 
+  const [searchParams, setSearchParams] = useSearchParams()
+
   useEffect(() => {
     Promise.all([poluxApi.getTeams(), poluxApi.getTasks(), poluxApi.getUsers()])
       .then(([t, tk, u]) => { setTeams(t); setTasks(tk); setUsers(u) })
       .finally(() => setLoading(false))
   }, [])
+
+  // Ouverture directe d'une tâche via ?task=<id> (clic sur une notification de la cloche).
+  // Si elle n'est pas dans la liste chargée (créée depuis), on recharge les tâches.
+  const taskParam = searchParams.get('task')
+  useEffect(() => {
+    if (loading || !taskParam) return
+    const taskId = Number(taskParam)
+    const clearParam = () => setSearchParams((prev) => { const next = new URLSearchParams(prev); next.delete('task'); return next }, { replace: true })
+    const found = tasks.find((t) => t.id === taskId)
+    if (found) {
+      setSelectedTask(found)
+      clearParam()
+      return
+    }
+    poluxApi.getTasks().then((fresh) => {
+      setTasks(fresh)
+      setSelectedTask(fresh.find((t) => t.id === taskId) ?? null)
+    }).finally(clearParam)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, taskParam])
 
   const currentUser = useMemo(() => users.find((u) => u.email === sdpUser?.email) ?? null, [users, sdpUser])
   const myTasks = useMemo(
@@ -122,6 +145,13 @@ export default function PoluxHomePage({ onOpenTeam, isAdmin = false }: PoluxHome
   }
 
   const taskHistory = useTaskHistory(tasks, selectedTask, setSelectedTask)
+
+  // Une notification Polux (tâche assignée, statut changé…) : on recharge les tâches sans bloquer l'écran.
+  useEffect(() => {
+    const reload = () => { poluxApi.getTasks().then(setTasks).catch(() => {}) }
+    window.addEventListener(POLUX_NOTIFICATION_EVENT, reload)
+    return () => window.removeEventListener(POLUX_NOTIFICATION_EVENT, reload)
+  }, [])
 
   function handleUpdated(updated: PoluxTask) {
     setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)))

@@ -5,6 +5,9 @@ import { messagesClient, type Conversation, type Message } from '../api/messages
 
 const SOCKET_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')
 
+/** Événement window émis à chaque notification temps réel du serveur sdp-dashboard. */
+export const SDP_NOTIFICATION_EVENT = 'sdp:notification'
+
 interface IncomingToast {
   id: number
   message: Message
@@ -20,7 +23,8 @@ interface MessagingContextType {
   closePanel: () => void
   openConversation: (userId: number) => void
   closeConversation: () => void
-  dismissToast: (id: number) => void
+  /** Messages de cet expéditeur traités (toast fermé, réponse, conversation ouverte) : marqués lus, toasts retirés. */
+  acknowledgeSender: (senderId: number) => void
   refreshConversations: () => void
   registerMessageHandler: (userId: number, handler: (msg: Message) => void) => () => void
 }
@@ -56,11 +60,14 @@ export const MessagingProvider = ({ children }: { children: ReactNode }) => {
   const openConversation = useCallback((userId: number) => {
     setPanelOpen(true)
     setActiveConversationUserId(userId)
+    // La conversation ouverte marque ses messages comme lus (ConversationThread) : ses toasts n'ont plus lieu d'être.
+    setToasts((prev) => prev.filter((t) => t.message.sender_id !== userId))
   }, [])
   const closeConversation = useCallback(() => setActiveConversationUserId(null), [])
-  const dismissToast = useCallback((id: number) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id))
-  }, [])
+  const acknowledgeSender = useCallback((senderId: number) => {
+    setToasts((prev) => prev.filter((t) => t.message.sender_id !== senderId))
+    messagesClient.markAsRead(senderId).then(refreshConversations).catch(() => {})
+  }, [refreshConversations])
 
   const registerMessageHandler = useCallback((userId: number, handler: (msg: Message) => void) => {
     if (!handlersRef.current.has(userId)) handlersRef.current.set(userId, new Set())
@@ -83,6 +90,10 @@ export const MessagingProvider = ({ children }: { children: ReactNode }) => {
       auth: { email: sdpUser.email },
     })
     socketRef.current = socket
+
+    // Notifications de la cloche (tickets) : relayées à NotificationsButton. Les messages n'y
+    // passent pas — seule la pastille de la messagerie les signale.
+    socket.on('notification', () => window.dispatchEvent(new Event(SDP_NOTIFICATION_EVENT)))
 
     socket.on('new_message', (message: Message) => {
       refreshConversations()
@@ -120,7 +131,7 @@ export const MessagingProvider = ({ children }: { children: ReactNode }) => {
         closePanel,
         openConversation,
         closeConversation,
-        dismissToast,
+        acknowledgeSender,
         refreshConversations,
         registerMessageHandler,
       }}

@@ -7,15 +7,16 @@ import {
   mockPoluxUsers,
 } from '../data/mockPoluxData'
 
-// Notification de mention en commentaire — table task_notifications dédiée côté polux-back
-// (séparée de la table `notifications` de sdp-dashboard pour ne pas coupler les deux bases
-// en écriture ; voir polux-back/src/migrations/001_init.sql).
-export interface PoluxMentionNotification {
+// Notification Polux (assignation, tâche d'équipe, statut, validation, mention, échéance, rappel) —
+// table task_notifications côté polux-back, séparée de la table `notifications` de sdp-dashboard
+// pour ne pas coupler les deux bases en écriture. Fusionnées dans la cloche (NotificationsButton).
+export interface PoluxNotification {
   id: number
   task_id: number
-  comment_id: number | null
-  mentioned_user_id: number
-  from_user_id: number
+  task_title: string
+  recipient_user_id: number
+  type: 'assigned' | 'team_task' | 'status_change' | 'validation_request' | 'mention' | 'deadline' | 'reminder'
+  message: string
   is_read: boolean
   created_at: string
 }
@@ -24,6 +25,11 @@ export interface PoluxMentionNotification {
 // Tant que VITE_POLUX_API_URL n'est pas configuré, ce client sert les données mockées en mémoire.
 const API_URL = import.meta.env.VITE_POLUX_API_URL ?? ''
 const USE_MOCK = !API_URL
+
+/** Serveur socket.io de polux-back (notifications temps réel) — vide en mode mock. */
+export const POLUX_SOCKET_URL = API_URL.replace(/\/api\/?$/, '')
+/** Événement window émis à chaque notification Polux temps réel (cloche, pages Polux). */
+export const POLUX_NOTIFICATION_EVENT = 'polux:notification'
 
 function delay<T>(value: T, ms = 250): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms))
@@ -60,7 +66,7 @@ let leads = [...mockPoluxLeads]
 // Accès à l'espace Leads/Prospects — même logique que member_ids sur une équipe, mais pour
 // un espace unique (pas de notion d'équipe dédiée). Les admins contournent toujours ce contrôle.
 let leadsAccessIds: number[] = [1, 2]
-let mentionNotifications: PoluxMentionNotification[] = []
+let mockNotifications: PoluxNotification[] = []
 let nextTaskId = tasks.length + 1
 let nextCommentId = comments.length + 1
 let nextTeamId = teams.length + 1
@@ -360,12 +366,14 @@ export const poluxApi = {
       mentionedUserIds
         .filter((userId) => userId !== authorId)
         .forEach((userId) => {
-          mentionNotifications = [...mentionNotifications, {
+          const task = tasks.find((t) => t.id === taskId)
+          mockNotifications = [...mockNotifications, {
             id: nextNotificationId++,
             task_id: taskId,
-            comment_id: comment.id,
-            mentioned_user_id: userId,
-            from_user_id: authorId,
+            task_title: task?.title ?? '',
+            recipient_user_id: userId,
+            type: 'mention',
+            message: `Vous avez été mentionné dans « ${task?.title ?? ''} »`,
             is_read: false,
             created_at: comment.created_at,
           }]
@@ -375,9 +383,33 @@ export const poluxApi = {
     return request(`/tasks/${taskId}/comments`, { method: 'POST', body: JSON.stringify({ body, mentioned_user_ids: mentionedUserIds }) })
   },
 
-  async getMentionNotifications(userId: number): Promise<PoluxMentionNotification[]> {
-    if (USE_MOCK) return delay(mentionNotifications.filter((n) => n.mentioned_user_id === userId))
+  async getNotifications(): Promise<PoluxNotification[]> {
+    if (USE_MOCK) {
+      const me = mockPoluxUsers.find((u) => u.email === currentUserEmail())
+      return delay(mockNotifications.filter((n) => n.recipient_user_id === me?.id).reverse())
+    }
     return request('/notifications')
+  },
+
+  async getUnreadNotificationCount(): Promise<number> {
+    if (USE_MOCK) return delay((await poluxApi.getNotifications()).filter((n) => !n.is_read).length)
+    return (await request<{ count: number }>('/notifications/unread-count')).count
+  },
+
+  async markNotificationRead(id: number): Promise<void> {
+    if (USE_MOCK) {
+      mockNotifications = mockNotifications.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+      return delay(undefined)
+    }
+    await request(`/notifications/${id}/read`, { method: 'PUT' })
+  },
+
+  async markAllNotificationsRead(): Promise<void> {
+    if (USE_MOCK) {
+      mockNotifications = mockNotifications.map((n) => ({ ...n, is_read: true }))
+      return delay(undefined)
+    }
+    await request('/notifications/read-all', { method: 'PUT' })
   },
 
   async uploadAttachments(taskId: number, files: File[]): Promise<PoluxTask> {

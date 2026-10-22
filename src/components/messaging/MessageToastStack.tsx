@@ -8,8 +8,8 @@ function initials(name: string) {
   return parts.map((p) => p[0]).slice(0, 2).join('').toUpperCase()
 }
 
-function ToastItem({ id, senderId, senderName, content }: { id: number; senderId: number; senderName: string; content: string }) {
-  const { dismissToast, openConversation, refreshConversations } = useMessaging()
+function ToastItem({ senderId, senderName, content }: { senderId: number; senderName: string; content: string }) {
+  const { acknowledgeSender, openConversation } = useMessaging()
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
 
@@ -19,8 +19,7 @@ function ToastItem({ id, senderId, senderName, content }: { id: number; senderId
     setSending(true)
     try {
       await messagesClient.sendMessage(senderId, text)
-      refreshConversations()
-      dismissToast(id)
+      acknowledgeSender(senderId)
     } finally {
       setSending(false)
     }
@@ -37,7 +36,7 @@ function ToastItem({ id, senderId, senderName, content }: { id: number; senderId
           <p className="text-xs text-gray-600 line-clamp-2">{content}</p>
         </div>
         <button
-          onClick={() => dismissToast(id)}
+          onClick={() => acknowledgeSender(senderId)}
           className="text-gray-600 hover:text-gray-900 transition-colors shrink-0"
           aria-label="Fermer la notification"
         >
@@ -62,7 +61,7 @@ function ToastItem({ id, senderId, senderName, content }: { id: number; senderId
           <Send size={12} />
         </button>
         <button
-          onClick={() => { openConversation(senderId); dismissToast(id) }}
+          onClick={() => openConversation(senderId)}
           className="w-7 h-7 shrink-0 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900 transition-colors"
           aria-label="Ouvrir la discussion"
           title="Ouvrir la discussion"
@@ -84,7 +83,6 @@ export function MessageToastStack() {
       {toasts.map((t) => (
         <ToastItem
           key={t.id}
-          id={t.id}
           senderId={t.message.sender_id}
           senderName={`${t.message.sender_first_name ?? ''} ${t.message.sender_last_name ?? ''}`.trim() || 'Nouveau message'}
           content={t.message.content}
