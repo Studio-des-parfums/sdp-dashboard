@@ -14,6 +14,7 @@ interface Formula {
   id: number
   reference?: string
   perfume_name?: string
+  date?: string
   customer_id?: number
   file_id?: number
   comment?: string
@@ -100,6 +101,32 @@ function getFitStyle(
     transform: `rotate(${rotation}deg)`,
     transition: 'transform 0.3s ease',
   }
+}
+
+function formatDateDisplay(dateString: string | null | undefined): string {
+  if (!dateString) return 'Non renseignée'
+  const str = dateString.trim()
+  if (!str) return 'Non renseignée'
+  const ddmmyyyyRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/
+  if (ddmmyyyyRegex.test(str)) return str
+  const yyyymmddRegex = /^(\d{4})-(\d{2})-(\d{2})/
+  const match = str.match(yyyymmddRegex)
+  if (match) {
+    const [, y, m, d] = match
+    return `${d}/${m}/${y}`
+  }
+  try {
+    const date = new Date(str)
+    if (!isNaN(date.getTime())) {
+      const day = String(date.getDate()).padStart(2, '0')
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const year = date.getFullYear()
+      return `${day}/${month}/${year}`
+    }
+  } catch {
+    // fallback
+  }
+  return str
 }
 
 export default function FormulaDetailsPage({ formulaId, customerId, onBack, onOpenFormula }: FormulaDetailsPageProps) {
@@ -267,6 +294,7 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack, onOp
     try {
       await formulasApi.updateNotes(formulaId, {
         perfume_name: editingData.perfume_name,
+        date: editingData.date,
         top_notes: editingData.top_notes,
         heart_notes: editingData.heart_notes,
         base_notes: editingData.base_notes,
@@ -325,6 +353,7 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack, onOp
           <div className="min-w-0">
             <h1 className="text-lg font-bold text-gray-900 truncate">{formula.reference || `Formule #${formula.id}`}</h1>
             <p className="text-xs text-gray-600 truncate">Nom du parfum : {formula.perfume_name || 'Non renseigné'}</p>
+            <p className="text-xs text-gray-600 truncate">Date : {formatDateDisplay(formula.date)}</p>
             {customerName && (
               <p className="text-xs text-gray-600 truncate">Client : {customerName}</p>
             )}
@@ -452,14 +481,26 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack, onOp
             </>
           ) : (
             <>
-              <div className="mb-5">
-                <label className="text-xs text-gray-600 mb-1 block">Nom du parfum</label>
-                <input
-                  type="text"
-                  value={editingData?.perfume_name || ''}
-                  onChange={e => setEditingData(prev => prev ? { ...prev, perfume_name: e.target.value } : prev)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-indigo-500 transition-colors"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+                <div>
+                  <label className="text-xs text-gray-600 mb-1 block">Nom du parfum</label>
+                  <input
+                    type="text"
+                    value={editingData?.perfume_name || ''}
+                    onChange={e => setEditingData(prev => prev ? { ...prev, perfume_name: e.target.value } : prev)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-indigo-500 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-600 mb-1 block">Date de la formule</label>
+                  <input
+                    type="text"
+                    placeholder="JJ/MM/AAAA ou AAAA-MM-JJ"
+                    value={editingData?.date || ''}
+                    onChange={e => setEditingData(prev => prev ? { ...prev, date: e.target.value } : prev)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-indigo-500 transition-colors"
+                  />
+                </div>
               </div>
 
               <div className="space-y-5">

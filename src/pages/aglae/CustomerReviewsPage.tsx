@@ -24,6 +24,7 @@ interface ReviewFormula {
   id: number
   reference: string
   perfume_name?: string
+  date?: string
   file_id?: number
   top_notes: { id?: number; name: string; quantity: string }[]
   heart_notes: { id?: number; name: string; quantity: string }[]
@@ -580,7 +581,7 @@ export default function CustomerReviewsPage({ onBack }: { onBack: () => void }) 
                   <h4 className="text-sm font-medium text-gray-500 mb-3">Formule</h4>
                   {formulas.map(formula => (
                     <div key={formula.id} className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-3">
-                      <div className="flex items-center gap-3 mb-3">
+                      <div className="flex flex-wrap items-center gap-3 mb-3">
                         <div className="text-xs">
                           <span className="text-gray-600">Référence :</span>
                           <span className="text-gray-900 ml-1">{formula.reference || 'Non renseigné'}</span>
@@ -589,6 +590,12 @@ export default function CustomerReviewsPage({ onBack }: { onBack: () => void }) 
                           <span className="text-gray-600">Nom du parfum :</span>
                           <span className="text-gray-900 ml-1">{formula.perfume_name || 'Non renseigné'}</span>
                         </div>
+                        {formula.date && (
+                          <div className="text-xs">
+                            <span className="text-gray-600">Date :</span>
+                            <span className="text-gray-900 ml-1">{formatDateDisplay(formula.date)}</span>
+                          </div>
+                        )}
                       </div>
                       <div className="grid grid-cols-3 gap-4">
                         {(['top_notes', 'heart_notes', 'base_notes'] as const).map((noteType, ti) => (

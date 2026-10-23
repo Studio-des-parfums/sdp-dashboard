@@ -32,7 +32,34 @@ interface Formula {
   id: number
   reference?: string
   perfume_name?: string
+  date?: string
   file_id?: number
+}
+
+function formatDateDisplay(dateString: string | null | undefined): string {
+  if (!dateString) return ''
+  const str = dateString.trim()
+  if (!str) return ''
+  const ddmmyyyyRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/
+  if (ddmmyyyyRegex.test(str)) return str
+  const yyyymmddRegex = /^(\d{4})-(\d{2})-(\d{2})/
+  const match = str.match(yyyymmddRegex)
+  if (match) {
+    const [, y, m, d] = match
+    return `${d}/${m}/${y}`
+  }
+  try {
+    const date = new Date(str)
+    if (!isNaN(date.getTime())) {
+      const day = String(date.getDate()).padStart(2, '0')
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const year = date.getFullYear()
+      return `${day}/${month}/${year}`
+    }
+  } catch {
+    // fallback
+  }
+  return str
 }
 
 interface CustomerDetailsPageProps {
@@ -268,6 +295,9 @@ export default function CustomerDetailsPage({ customerId, onBack, onCustomerDele
                   className="text-xs text-gray-600 hover:text-indigo-600 pl-3 pr-2 py-1.5"
                 >
                   🔬 {f.reference || `Formule #${f.id}`}
+                  {f.date && (
+                    <span className="text-gray-500 ml-1.5 text-[11px]">({formatDateDisplay(f.date)})</span>
+                  )}
                 </button>
                 {!f.file_id && (
                   <>
