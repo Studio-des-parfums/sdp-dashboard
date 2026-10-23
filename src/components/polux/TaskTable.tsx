@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { PoluxTask, PoluxTeam, PoluxUserRef } from '../../types/polux'
+import { useAuth } from '../../contexts/AuthContext'
+import { userDisplayName } from './userLabel'
 import { deadlineClass, formatDeadline, PRIORITY_CLASS, PRIORITY_LABEL, STATUS_CLASS, STATUS_LABEL } from './priority'
 
 type SortKey = 'deadline' | 'priority' | 'status' | 'title'
@@ -16,6 +18,7 @@ interface TaskTableProps {
 }
 
 export function TaskTable({ tasks, users, teams = [], showProjectColumn, showTeamColumn, onOpenTask }: TaskTableProps) {
+  const { sdpUser } = useAuth()
   const [sortKey, setSortKey] = useState<SortKey>('deadline')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [priorityFilter, setPriorityFilter] = useState<string>('all')
@@ -95,6 +98,7 @@ export function TaskTable({ tasks, users, teams = [], showProjectColumn, showTea
               {showProjectColumn && <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Projet</th>}
               {showTeamColumn && <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Équipe</th>}
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Assigné à</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Assignée par</th>
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Priorité</th>
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Statut</th>
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Début</th>
@@ -104,6 +108,7 @@ export function TaskTable({ tasks, users, teams = [], showProjectColumn, showTea
           <tbody className="divide-y divide-gray-200">
             {sorted.map((task) => {
               const assignees = task.assigned_to_ids.map((id) => userById.get(id)).filter((u): u is PoluxUserRef => !!u)
+              const creator = userById.get(task.created_by)
               return (
                 <tr key={task.id} className="cursor-pointer transition-colors hover:bg-gray-100/60" onClick={() => onOpenTask(task)}>
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">
@@ -113,8 +118,15 @@ export function TaskTable({ tasks, users, teams = [], showProjectColumn, showTea
                     </span>
                   </td>
                   {showProjectColumn && <td className="px-6 py-4 text-sm text-gray-600">{task.project_name ?? '—'}</td>}
-                  {showTeamColumn && <td className="px-6 py-4 text-sm text-gray-600">{teamById.get(task.team_id)?.name ?? '—'}</td>}
-                  <td className="px-6 py-4 text-sm text-gray-600">{assignees.length > 0 ? assignees.map((u) => `${u.first_name} ${u.last_name}`).join(', ') : 'Non assignée'}</td>
+                  {showTeamColumn && (
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {task.team_id != null ? teamById.get(task.team_id)?.name ?? '—' : (
+                        <span className="inline-flex items-center rounded-full bg-gray-300/10 px-2 py-1 text-[11px] font-medium text-gray-600">Personnel</span>
+                      )}
+                    </td>
+                  )}
+                  <td className="px-6 py-4 text-sm text-gray-600">{assignees.length > 0 ? assignees.map((u) => userDisplayName(u, sdpUser?.email)).join(', ') : task.team_id != null ? 'Équipe' : 'Non assignée'}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600">{creator ? userDisplayName(creator, sdpUser?.email) : '—'}</td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex items-center rounded-full px-2 py-1 text-[11px] font-medium ${PRIORITY_CLASS[task.priority]}`}>{PRIORITY_LABEL[task.priority]}</span>
                   </td>
@@ -128,7 +140,7 @@ export function TaskTable({ tasks, users, teams = [], showProjectColumn, showTea
             })}
             {sorted.length === 0 && (
               <tr>
-                <td className="px-6 py-10 text-center text-sm text-gray-600" colSpan={showProjectColumn && showTeamColumn ? 8 : showProjectColumn || showTeamColumn ? 7 : 6}>
+                <td className="px-6 py-10 text-center text-sm text-gray-600" colSpan={7 + (showProjectColumn ? 1 : 0) + (showTeamColumn ? 1 : 0)}>
                   Aucune tâche trouvée.
                 </td>
               </tr>

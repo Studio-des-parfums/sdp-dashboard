@@ -58,6 +58,7 @@ export default function MarketplaceRenderer({
             formulaId={selectedFormulaId}
             customerId={selectedCustomerId ?? 0}
             onBack={onBackToCustomer}
+            onOpenFormula={onOpenFormula}
           />
         )
       }

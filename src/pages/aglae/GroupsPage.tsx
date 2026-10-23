@@ -71,8 +71,8 @@ export default function GroupsPage({ onOpenGroups }: { onOpenGroups: (groupIds: 
   }
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-lg font-bold text-gray-900">Groups</h1>
           <p className="text-xs text-gray-600 mt-0.5">{groups.length} group{groups.length !== 1 ? 's' : ''}</p>
@@ -100,8 +100,8 @@ export default function GroupsPage({ onOpenGroups }: { onOpenGroups: (groupIds: 
           <Button variant="ghost" size="sm" className="mt-2" onClick={() => setShowCreate(true)}>Create your first group</Button>
         </div>
       ) : (
-        <div className="bg-gray-100 border border-gray-200 rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="bg-gray-100 border border-gray-200 rounded-xl overflow-x-auto">
+          <table className="w-full min-w-[500px] text-sm">
             <thead>
               <tr className="border-b border-gray-200 text-gray-500 text-xs uppercase tracking-wider">
                 <th className="text-left px-4 py-3 font-medium">Name</th>

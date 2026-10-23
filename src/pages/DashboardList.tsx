@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { Sidebar } from '../components/Sidebar'
 import { DashboardCard } from '../components/DashboardCard'
 import { api } from '../api/client'
@@ -9,6 +10,7 @@ export function DashboardList() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [collapsed, setCollapsed] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   useEffect(() => {
     api
@@ -20,19 +22,37 @@ export function DashboardList() {
 
   return (
     <div className="flex h-screen">
-      <Sidebar mode="projects" projects={projects} collapsed={collapsed} />
+      <Sidebar
+        mode="projects"
+        projects={projects}
+        collapsed={collapsed}
+        mobileOpen={mobileMenuOpen}
+        onCloseMobile={() => setMobileMenuOpen(false)}
+      />
       <main className="flex-1 overflow-y-auto">
-        <div className="h-14 border-b border-gray-200 flex items-center px-6">
+        <div className="h-14 border-b border-gray-200 flex items-center px-4 md:px-6">
           <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="text-gray-600 hover:text-gray-900 transition-colors text-xs"
+            type="button"
+            onClick={() => setMobileMenuOpen(true)}
+            className="md:hidden text-gray-600 hover:text-gray-900 transition-colors p-1 mr-2"
+            title="Menu"
+            aria-label="Ouvrir le menu"
           >
-            {collapsed ? '→' : '←'}
+            <Menu size={18} />
           </button>
-          <h1 className="text-sm font-semibold text-gray-900 ml-4">Tableau de bord</h1>
+          <button
+            type="button"
+            onClick={() => setCollapsed(!collapsed)}
+            className="hidden md:flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors p-1.5 rounded-lg"
+            title={collapsed ? 'Agrandir la barre latérale' : 'Réduire la barre latérale'}
+            aria-label={collapsed ? 'Agrandir la barre latérale' : 'Réduire la barre latérale'}
+          >
+            {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+          </button>
+          <h1 className="hidden md:block text-sm font-semibold text-gray-900 ml-2 md:ml-4">Tableau de bord</h1>
         </div>
 
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[1, 2, 3, 4, 5].map((i) => (

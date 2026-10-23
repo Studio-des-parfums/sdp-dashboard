@@ -3,17 +3,66 @@ import { BarChart3, Shield, Plus, Trash2, Save, Settings, Mail, RotateCw, X as X
 import { adminClient, type AdminProject, type ProjectNote, type AdminUser, type AdminRole, type UserProject } from '../api/adminClient'
 import { ticketsClient, type Ticket, type TicketStatus } from '../api/ticketsClient'
 import { api } from '../api/client'
+import { poluxApi } from '../api/poluxClient'
+import type { PoluxTeam } from '../types/polux'
 import { useToast } from '../components/ui/Toast'
 import type { Project } from '../types'
 import AdminNotesPage from './admin/AdminNotesPage'
 import AdminAteliersPage from './admin/AdminAteliersPage'
 import AdminOptionsPage from './admin/AdminOptionsPage'
+import AdminTeamsPage from './admin/AdminTeamsPage'
 
-type Tab = 'projects' | 'users' | 'roles' | 'tickets' | 'notes' | 'ateliers' | 'options'
+type Tab = 'projects' | 'users' | 'teams' | 'roles' | 'tickets' | 'notes' | 'ateliers' | 'options'
 
 const RESOURCES = ['dashboard', 'lylo', 'aglae', 'ninno', 'users'] as const
 const ACTIONS = ['view', 'edit'] as const
 const PERMISSION_LEVELS = ['none', 'view', 'edit', 'admin'] as const
+
+// Les équipes d'un utilisateur (base globale) correspondent à des espaces officiels Polux : on garde
+// l'appartenance aux espaces synchronisée — retiré des équipes enlevées, ajouté aux nouvelles.
+async function syncPoluxTeamMembership(userId: number, teams: PoluxTeam[], oldSlugs: string[], newSlugs: string[]) {
+  for (const team of teams) {
+    const before = oldSlugs.includes(team.slug)
+    const after = newSlugs.includes(team.slug)
+    if (before && !after) await poluxApi.removeTeamMember(team.id, userId)
+    if (!before && after) await poluxApi.addTeamMember(team.id, userId)
+  }
+}
+
+function TeamPicker({ teams, value, onChange }: { teams: PoluxTeam[]; value: string[]; onChange: (slugs: string[]) => void }) {
+  const toggle = (slug: string) => onChange(value.includes(slug) ? value.filter(s => s !== slug) : [...value, slug])
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {teams.map(t => {
+        const selected = value.includes(t.slug)
+        return (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => toggle(t.slug)}
+            className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors ${selected ? 'text-white' : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-200'}`}
+            style={selected ? { backgroundColor: t.color, borderColor: t.color } : undefined}
+          >
+            {!selected && <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: t.color }} />}
+            {t.name}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function TeamBadges({ teams, slugs }: { teams: PoluxTeam[]; slugs: string[] }) {
+  const userTeams = teams.filter(t => slugs.includes(t.slug))
+  if (userTeams.length === 0) return <span className="text-[10px] text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded">Aucune équipe</span>
+  return (
+    <>
+      {userTeams.map(t => (
+        <span key={t.id} className="text-[10px] text-white px-2 py-0.5 rounded" style={{ backgroundColor: t.color }}>{t.name}</span>
+      ))}
+    </>
+  )
+}
 
 interface AdminPageProps {
   embedded?: boolean
@@ -31,6 +80,7 @@ export default function AdminPage({ embedded, section, onSectionChange: _onSecti
       <div className="space-y-4">
         {activeTab === 'projects' && <ProjectsTab />}
         {activeTab === 'users' && <UsersTab />}
+        {activeTab === 'teams' && <AdminTeamsPage />}
         {activeTab === 'roles' && <RolesTab />}
         {activeTab === 'tickets' && <TicketsTab />}
         {activeTab === 'notes' && <AdminNotesPage />}
@@ -48,7 +98,7 @@ export default function AdminPage({ embedded, section, onSectionChange: _onSecti
           <span className="font-bold text-sm truncate text-gray-900">Administration</span>
         </div>
         <nav className="flex-1 py-2">
-          {([['projects', 'Projets'], ['users', 'Utilisateurs'], ['roles', 'Rôles'], ['tickets', 'Tickets'], ['notes', 'Coffrets et Notes'], ['ateliers', 'Ateliers'], ['options', 'Options']] as [Tab, string][]).map(([id, label]) => (
+          {([['projects', 'Projets'], ['users', 'Utilisateurs'], ['teams', 'Équipes'], ['roles', 'Rôles'], ['tickets', 'Tickets'], ['notes', 'Coffrets et Notes'], ['ateliers', 'Ateliers'], ['options', 'Options']] as [Tab, string][]).map(([id, label]) => (
             <button
               key={id}
               onClick={() => setTab(id)}
@@ -65,6 +115,7 @@ export default function AdminPage({ embedded, section, onSectionChange: _onSecti
       <main className="flex-1 overflow-y-auto p-6">
         {activeTab === 'projects' && <ProjectsTab />}
         {activeTab === 'users' && <UsersTab />}
+        {activeTab === 'teams' && <AdminTeamsPage />}
         {activeTab === 'roles' && <RolesTab />}
         {activeTab === 'tickets' && <TicketsTab />}
         {activeTab === 'notes' && <AdminNotesPage />}
@@ -187,7 +238,8 @@ function UsersTab() {
   const [editing, setEditing] = useState(false)
   const [editData, setEditData] = useState<Partial<AdminUser>>({})
   const [showNew, setShowNew] = useState(false)
-  const [newUser, setNewUser] = useState({ email: '', first_name: '', last_name: '', role_id: 0 })
+  const [newUser, setNewUser] = useState({ email: '', first_name: '', last_name: '', role_id: 0, team_slugs: [] as string[] })
+  const [officialTeams, setOfficialTeams] = useState<PoluxTeam[]>([])
   const [error, setError] = useState<string | null>(null)
   const [showRoles, setShowRoles] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -200,6 +252,10 @@ function UsersTab() {
       setUsers(u)
       setRoles(r)
     }).catch(err => setError(err.message))
+    poluxApi.getTeams()
+      .then(t => setOfficialTeams(t.filter(team => team.is_official)))
+      .catch(err => showError('Équipes indisponibles', err.message))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const openUser = async (u: AdminUser) => {
@@ -212,9 +268,18 @@ function UsersTab() {
 
   const saveEdit = async () => {
     if (!selectedUser || !editData) return
+    if (!editData.team_slugs?.length) {
+      showError('Équipe manquante', 'Chaque utilisateur doit appartenir à une équipe.')
+      return
+    }
     setSaving(true)
     try {
       const updated = await adminClient.updateUser(selectedUser.id, editData)
+      try {
+        await syncPoluxTeamMembership(updated.id, officialTeams, selectedUser.team_slugs ?? [], updated.team_slugs ?? [])
+      } catch (err: any) {
+        showError('Espace Polux non synchronisé', err.message)
+      }
       const projectsWithAccess = userProjects
         .filter(p => p.slug !== 'sdp-core' && p.slug !== 'admin-portal' && p.permission && p.permission !== 'none')
         .map(p => ({ project_id: p.id, permission: 'view' }))
@@ -232,13 +297,21 @@ function UsersTab() {
   }
 
   const saveNew = async () => {
-    if (!newUser.email || !newUser.first_name || !newUser.last_name || !newUser.role_id) return
+    if (!newUser.email || !newUser.first_name || !newUser.last_name || !newUser.role_id || newUser.team_slugs.length === 0) {
+      showError('Champs manquants', 'Prénom, nom, email, rôle et au moins une équipe sont requis.')
+      return
+    }
     setSaving(true)
     try {
       const created = await adminClient.createUser(newUser)
+      try {
+        await syncPoluxTeamMembership(created.id, officialTeams, [], created.team_slugs ?? [])
+      } catch (err: any) {
+        showError('Espace Polux non synchronisé', err.message)
+      }
       setUsers(prev => [...prev, created])
       setShowNew(false)
-      setNewUser({ email: '', first_name: '', last_name: '', role_id: roles[0]?.id || 0 })
+      setNewUser({ email: '', first_name: '', last_name: '', role_id: roles[0]?.id || 0, team_slugs: [] })
       showSuccess('Utilisateur créé', `${created.first_name} ${created.last_name}`)
     } catch (err: any) {
       showError('Échec de la création', err.message)
@@ -313,8 +386,9 @@ function UsersTab() {
                 <p className="text-xs text-gray-600 truncate mt-0.5">{u.email}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 mt-3">
+            <div className="flex flex-wrap items-center gap-1.5 mt-3">
               <span className="text-[10px] text-gray-500 bg-white px-2 py-0.5 rounded">{u.role_name}</span>
+              <TeamBadges teams={officialTeams} slugs={u.team_slugs ?? []} />
               <a href={`mailto:${u.email}`} onClick={e => e.stopPropagation()} className="ml-auto text-gray-600 hover:text-indigo-600 transition-colors">
                 <Mail size={14} />
               </a>
@@ -349,8 +423,12 @@ function UsersTab() {
                 {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
               </select>
             </div>
+            <div>
+              <label className="text-xs text-gray-600 mb-1 block">Équipes</label>
+              <TeamPicker teams={officialTeams} value={newUser.team_slugs} onChange={team_slugs => setNewUser({ ...newUser, team_slugs })} />
+            </div>
             <div className="flex gap-2">
-              <button onClick={saveNew} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm transition-colors">Créer</button>
+              <button onClick={saveNew} disabled={saving} className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm transition-colors">Créer</button>
               <button onClick={() => setShowNew(false)} className="text-gray-500 hover:text-gray-900 px-4 py-2 rounded-lg text-sm transition-colors">Annuler</button>
             </div>
           </div>
@@ -400,6 +478,10 @@ function UsersTab() {
                   </select>
                 </div>
                 <div>
+                  <label className="text-xs text-gray-600 mb-1 block">Équipes</label>
+                  <TeamPicker teams={officialTeams} value={editData.team_slugs ?? []} onChange={team_slugs => setEditData({ ...editData, team_slugs })} />
+                </div>
+                <div>
                   <label className="text-xs text-gray-600 mb-2 block">Accès projets</label>
                   <p className="text-[11px] text-gray-500 mb-2">L'accueil est toujours accessible. La page Admin est réservée au rôle admin.</p>
                   <div className="space-y-1 max-h-40 overflow-y-auto">
@@ -437,6 +519,7 @@ function UsersTab() {
                   <div><span className="text-gray-600">Email</span><p className="text-gray-900">{selectedUser.email}</p></div>
                   <div><span className="text-gray-600">Pseudo</span><p className="text-gray-900">{selectedUser.pseudo}</p></div>
                   <div><span className="text-gray-600">Rôle</span><p className="text-gray-900">{selectedUser.role_name}</p></div>
+                  <div className="col-span-2"><span className="text-gray-600">Équipes</span><div className="flex flex-wrap gap-1.5 mt-1"><TeamBadges teams={officialTeams} slugs={selectedUser.team_slugs ?? []} /></div></div>
                   <div><span className="text-gray-600">Statut</span><p className={selectedUser.is_active ? 'text-emerald-600' : 'text-red-700'}>{selectedUser.is_active ? 'Actif' : 'Inactif'}</p></div>
                   <div className="col-span-2"><span className="text-gray-600">Dernière connexion</span><p className="text-gray-900">{selectedUser.last_login ? new Date(selectedUser.last_login).toLocaleDateString('fr-FR') + ' ' + new Date(selectedUser.last_login).toLocaleTimeString('fr-FR') : 'Jamais'}</p></div>
                 </div>

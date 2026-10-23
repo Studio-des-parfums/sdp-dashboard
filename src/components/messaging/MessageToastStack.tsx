@@ -1,15 +1,16 @@
 import { useState } from 'react'
-import { X, Send, MessageCircle } from 'lucide-react'
-import { useMessaging } from '../../contexts/MessagingContext'
-import { messagesClient } from '../../api/messagesClient'
+import { X, Send, MessageCircle, Video } from 'lucide-react'
+import { useMessaging, messageTarget } from '../../contexts/MessagingContext'
+import { messagesClient, type ConversationTarget } from '../../api/messagesClient'
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/)
   return parts.map((p) => p[0]).slice(0, 2).join('').toUpperCase()
 }
 
-function ToastItem({ id, senderId, senderName, content }: { id: number; senderId: number; senderName: string; content: string }) {
-  const { dismissToast, openConversation, refreshConversations } = useMessaging()
+function ToastItem({ target, title, content, callUrl }: { target: ConversationTarget; title: string; content: string; callUrl: string | null }) {
+  const { acknowledge, openConversation, openCall } = useMessaging()
+  const [callError, setCallError] = useState<string | null>(null)
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
 
@@ -18,9 +19,8 @@ function ToastItem({ id, senderId, senderName, content }: { id: number; senderId
     if (!text || sending) return
     setSending(true)
     try {
-      await messagesClient.sendMessage(senderId, text)
-      refreshConversations()
-      dismissToast(id)
+      await messagesClient.sendMessage(target, text)
+      acknowledge(target)
     } finally {
       setSending(false)
     }
@@ -30,20 +30,38 @@ function ToastItem({ id, senderId, senderName, content }: { id: number; senderId
     <div className="w-80 bg-white border border-gray-200 rounded-xl shadow-2xl overflow-hidden">
       <div className="flex items-start gap-2.5 px-3 pt-3 pb-2">
         <span className="w-9 h-9 rounded-full bg-indigo-600/10 text-indigo-600 text-xs font-bold flex items-center justify-center shrink-0">
-          {initials(senderName)}
+          {initials(title)}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-gray-900 truncate">{senderName}</p>
-          <p className="text-xs text-gray-600 line-clamp-2">{content}</p>
+          <p className="text-sm font-semibold text-gray-900 truncate">{title}</p>
+          <p className="text-xs text-gray-600 line-clamp-2">{callUrl ? '📹 vous invite à un appel visio' : content}</p>
         </div>
         <button
-          onClick={() => dismissToast(id)}
+          onClick={() => acknowledge(target)}
           className="text-gray-600 hover:text-gray-900 transition-colors shrink-0"
           aria-label="Fermer la notification"
         >
           <X size={16} />
         </button>
       </div>
+      {callUrl && (
+        <div className="px-3 pb-2">
+          <button
+            onClick={async () => {
+              try {
+                openCall(await messagesClient.joinCall(callUrl))
+                acknowledge(target)
+              } catch (err) {
+                setCallError(err instanceof Error ? err.message : "Impossible de rejoindre l'appel")
+              }
+            }}
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-emerald-600 py-2 text-sm font-semibold text-white hover:bg-emerald-500 transition-colors"
+          >
+            <Video size={15} /> Rejoindre l'appel
+          </button>
+          {callError && <p className="mt-1 text-center text-[11px] text-red-600">{callError}</p>}
+        </div>
+      )}
       <div className="flex items-center gap-2 px-3 pb-3">
         <input
           autoFocus
@@ -62,7 +80,7 @@ function ToastItem({ id, senderId, senderName, content }: { id: number; senderId
           <Send size={12} />
         </button>
         <button
-          onClick={() => { openConversation(senderId); dismissToast(id) }}
+          onClick={() => openConversation(target)}
           className="w-7 h-7 shrink-0 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900 transition-colors"
           aria-label="Ouvrir la discussion"
           title="Ouvrir la discussion"
@@ -75,21 +93,25 @@ function ToastItem({ id, senderId, senderName, content }: { id: number; senderId
 }
 
 export function MessageToastStack() {
-  const { toasts } = useMessaging()
+  const { toasts, groups } = useMessaging()
 
   if (toasts.length === 0) return null
 
   return (
     <div className="fixed bottom-4 right-4 z-[60] flex flex-col-reverse gap-2">
-      {toasts.map((t) => (
-        <ToastItem
-          key={t.id}
-          id={t.id}
-          senderId={t.message.sender_id}
-          senderName={`${t.message.sender_first_name ?? ''} ${t.message.sender_last_name ?? ''}`.trim() || 'Nouveau message'}
-          content={t.message.content}
-        />
-      ))}
+      {toasts.map((t) => {
+        const sender = `${t.message.sender_first_name ?? ''} ${t.message.sender_last_name ?? ''}`.trim() || 'Nouveau message'
+        const group = t.message.group_id ? groups.find((g) => g.id === t.message.group_id) : null
+        return (
+          <ToastItem
+            key={t.id}
+            target={messageTarget(t.message)}
+            title={group ? `${group.name} · ${t.message.sender_first_name ?? sender}` : sender}
+            content={t.message.content}
+            callUrl={t.message.call_url ?? null}
+          />
+        )
+      })}
     </div>
   )
 }

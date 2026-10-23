@@ -135,7 +135,7 @@ export default function DevicesPage() {
     if (items.length === 0) return <p className="text-sm text-gray-600 text-center py-8">Aucun appareil</p>
     return (
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[550px] text-sm">
           <thead>
             <tr className="border-b border-gray-200 text-gray-500 text-xs uppercase tracking-wider">
               <th className="text-left px-4 py-3 font-medium">Device ID</th>
@@ -217,7 +217,7 @@ export default function DevicesPage() {
 
   if (loading) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="space-y-6">
         <div className="h-8 bg-gray-200 rounded w-48 animate-pulse" />
         <div className="space-y-4">
           {[1, 2, 3].map(s => (
@@ -234,7 +234,7 @@ export default function DevicesPage() {
 
   if (error) {
     return (
-      <div className="p-6 flex flex-col items-center justify-center h-64">
+      <div className="flex flex-col items-center justify-center h-64">
         <p className="text-red-700 text-sm mb-4">{error}</p>
         <Button size="sm" onClick={fetchDevices}>🔄 Réessayer</Button>
       </div>
@@ -242,8 +242,8 @@ export default function DevicesPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-lg font-bold text-gray-900">📱 Appareils</h1>
           <p className="text-xs text-gray-600 mt-0.5">{devices.length} appareil{devices.length !== 1 ? 's' : ''}</p>

@@ -8,6 +8,12 @@ import type { PoluxTeam } from '../../types/polux'
 
 const DEFAULT_COLORS = ['#6366f1', '#ec4899', '#14b8a6', '#f59e0b', '#10b981', '#ef4444']
 
+function defaultEndDate(): string {
+  const d = new Date()
+  d.setDate(d.getDate() + 30)
+  return d.toISOString().slice(0, 10)
+}
+
 interface CreateTeamModalProps {
   open: boolean
   onClose: () => void
@@ -17,19 +23,21 @@ interface CreateTeamModalProps {
 export function CreateTeamModal({ open, onClose, onCreated }: CreateTeamModalProps) {
   const [name, setName] = useState('')
   const [color, setColor] = useState(DEFAULT_COLORS[0])
+  const [endDate, setEndDate] = useState(defaultEndDate())
   const [isBusy, setIsBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function submit() {
     const trimmed = name.trim()
-    if (!trimmed) return
+    if (!trimmed || !endDate) return
     setIsBusy(true)
     setError(null)
     try {
-      const team = await poluxApi.createTeam({ name: trimmed, color })
+      const team = await poluxApi.createTeam({ name: trimmed, color, end_date: endDate })
       onCreated(team)
       setName('')
       setColor(DEFAULT_COLORS[0])
+      setEndDate(defaultEndDate())
       onClose()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur inconnue')
@@ -47,7 +55,7 @@ export function CreateTeamModal({ open, onClose, onCreated }: CreateTeamModalPro
       footer={
         <>
           <Button type="button" onClick={onClose}>Annuler</Button>
-          <Button variant="primary" type="button" onClick={submit} disabled={isBusy || !name.trim()}>Créer</Button>
+          <Button variant="primary" type="button" onClick={submit} disabled={isBusy || !name.trim() || !endDate}>Créer</Button>
         </>
       }
     >
@@ -55,7 +63,7 @@ export function CreateTeamModal({ open, onClose, onCreated }: CreateTeamModalPro
         {error && <div className="rounded-lg border border-red-200 bg-red-50/30 p-3 text-sm text-red-700">{error}</div>}
         <div className="space-y-2">
           <Label>Nom de l'équipe</Label>
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Design" />
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Graphisme" />
         </div>
         <div className="space-y-2">
           <Label>Couleur</Label>
@@ -71,6 +79,11 @@ export function CreateTeamModal({ open, onClose, onCreated }: CreateTeamModalPro
               />
             ))}
           </div>
+        </div>
+        <div className="space-y-2">
+          <Label>Date de fin de l'espace</Label>
+          <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          <p className="text-xs text-gray-500">À cette date, on te proposera de prolonger ou de supprimer l'espace.</p>
         </div>
       </div>
     </Modal>

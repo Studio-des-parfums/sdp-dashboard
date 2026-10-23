@@ -22,7 +22,7 @@ export default function NonoRenderer({ section }: { section: string }) {
   } = data
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-bold text-gray-900">🤖 Nono — {SECTION_TITLES[section] ?? 'Backoffice magasin'}</h1>

@@ -44,8 +44,8 @@ export default function ExtractionPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-bold text-gray-900">📄 Extraction PDF</h1>
@@ -66,7 +66,7 @@ export default function ExtractionPage() {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onClick={() => fileInputRef.current?.click()}
-        className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors ${
+        className={`border-2 border-dashed rounded-xl p-6 sm:p-10 text-center cursor-pointer transition-colors ${
           dragging
             ? 'border-indigo-500 bg-indigo-500/5'
             : 'border-gray-300 bg-gray-100/50 hover:border-gray-300 hover:bg-gray-100'
@@ -89,7 +89,7 @@ export default function ExtractionPage() {
 
       {queue.length > 0 && (
         <div className="bg-gray-100 border border-gray-200 rounded-xl overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 py-3 border-b border-gray-200 gap-2">
             <div className="flex items-center gap-3">
               <span className="text-sm font-medium text-gray-900">📋 File d'attente ({queue.length})</span>
               {pendingCount > 0 && (
@@ -109,52 +109,54 @@ export default function ExtractionPage() {
               )}
             </div>
           </div>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 text-gray-500 text-xs uppercase tracking-wider">
-                <th className="text-left px-4 py-3 font-medium">Fichier</th>
-                <th className="text-left px-4 py-3 font-medium">Taille</th>
-                <th className="text-left px-4 py-3 font-medium">Pages</th>
-                <th className="text-left px-4 py-3 font-medium">Estimation</th>
-                <th className="text-left px-4 py-3 font-medium">Statut</th>
-                <th className="text-right px-4 py-3 font-medium">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {queue.map((item, idx) => (
-                <tr key={item.id} className="border-b border-gray-200/50 hover:bg-gray-100/60 transition-colors">
-                  <td className="px-4 py-3 text-gray-900">{item.filename}</td>
-                  <td className="px-4 py-3 text-gray-500">{formatBytes(item.size)}</td>
-                  <td className="px-4 py-3 text-gray-600">{item.pages ?? '—'}</td>
-                  <td className="px-4 py-3 text-gray-500">
-                    {item.estimatedTime ? `~${item.estimatedTime}s` : '—'}
-                  </td>
-                  <td className="px-4 py-3">
-                    {item.status === 'pending' && <span className="text-gray-600">⏳ En attente</span>}
-                    {item.status === 'processing' && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-blue-600 text-xs">⚙️ Traitement...</span>
-                        <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="h-full bg-blue-500 rounded-full animate-pulse" style={{ width: `${((idx + 1) / queue.length) * 100}%` }} />
-                        </div>
-                      </div>
-                    )}
-                    {item.status === 'done' && <span className="text-emerald-600">✅ Terminé</span>}
-                    {item.status === 'error' && (
-                      <span className="text-red-700" title={item.error}>⚠️ {item.error || 'Erreur'}</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {item.status !== 'processing' && (
-                      <button onClick={() => removeItem(item.id)} className="text-gray-600 hover:text-red-700 transition-colors text-xs">
-                        ✕
-                      </button>
-                    )}
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[500px] text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 text-gray-500 text-xs uppercase tracking-wider">
+                  <th className="text-left px-4 py-3 font-medium">Fichier</th>
+                  <th className="text-left px-4 py-3 font-medium">Taille</th>
+                  <th className="text-left px-4 py-3 font-medium">Pages</th>
+                  <th className="text-left px-4 py-3 font-medium">Estimation</th>
+                  <th className="text-left px-4 py-3 font-medium">Statut</th>
+                  <th className="text-right px-4 py-3 font-medium">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {queue.map((item, idx) => (
+                  <tr key={item.id} className="border-b border-gray-200/50 hover:bg-gray-100/60 transition-colors">
+                    <td className="px-4 py-3 text-gray-900 truncate max-w-[200px]" title={item.filename}>{item.filename}</td>
+                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{formatBytes(item.size)}</td>
+                    <td className="px-4 py-3 text-gray-600">{item.pages ?? '—'}</td>
+                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
+                      {item.estimatedTime ? `~${item.estimatedTime}s` : '—'}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {item.status === 'pending' && <span className="text-gray-600">⏳ En attente</span>}
+                      {item.status === 'processing' && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-blue-600 text-xs">⚙️ Traitement...</span>
+                          <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-500 rounded-full animate-pulse" style={{ width: `${((idx + 1) / queue.length) * 100}%` }} />
+                          </div>
+                        </div>
+                      )}
+                      {item.status === 'done' && <span className="text-emerald-600">✅ Terminé</span>}
+                      {item.status === 'error' && (
+                        <span className="text-red-700" title={item.error}>⚠️ {item.error || 'Erreur'}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {item.status !== 'processing' && (
+                        <button onClick={() => removeItem(item.id)} className="text-gray-600 hover:text-red-700 transition-colors text-xs p-1">
+                          ✕
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

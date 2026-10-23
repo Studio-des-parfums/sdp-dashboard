@@ -288,6 +288,12 @@ export const formulasApi = {
     })
     return handleResponse(response)
   },
+  duplicate: async (formulaId: number) => {
+    const response = await fetch(`${OCR_API_URL}/api/v1/formulas/${formulaId}/duplicate`, {
+      method: 'POST',
+    })
+    return handleResponse(response)
+  },
 }
 
 export const filesApi = {

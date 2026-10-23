@@ -7,7 +7,7 @@
     "dev": "vite",
     "dev:electron": "concurrently -k \"vite\" \"wait-on -d 1000 tcp:5173 && electron .\"",
     "build": "tsc && vite build && electron-builder",
-    "build:web": "tsc && vite build",
+    "build:web": "tsc && BUILD_TARGET=web vite build",
     "preview": "vite preview",
     "server": "npm --prefix server run dev",
     "bump:patch": "npm version patch",
@@ -16,6 +16,7 @@
     "publish": "electron-builder --publish always"
   },
   "dependencies": {
+    "@daily-co/daily-js": "^0.93.0",
     "@react-oauth/google": "^0.12.2",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
@@ -62,7 +63,10 @@
       "dist-electron/**/*"
     ],
     "mac": {
-      "target": "dmg"
+      "target": "dmg",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "SDP utilise le micro pour enregistrer les messages vocaux."
+      }
     },
     "win": {
       "target": "nsis"

@@ -109,19 +109,17 @@ export default function GroupDetailsPage({ groupIds, onBack }: { groupIds: numbe
 
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-48" />
-          <div className="h-4 bg-gray-200 rounded w-72" />
-          <div className="h-64 bg-gray-200 rounded-xl" />
-        </div>
+      <div className="animate-pulse space-y-4">
+        <div className="h-8 bg-gray-200 rounded w-48" />
+        <div className="h-4 bg-gray-200 rounded w-72" />
+        <div className="h-64 bg-gray-200 rounded-xl" />
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="p-6">
+      <div>
         <button onClick={onBack} className="text-gray-500 hover:text-gray-900 text-sm mb-4 flex items-center gap-1">◀ Back</button>
         <div className="flex items-center justify-center h-64">
           <p className="text-red-700 text-sm">{error}</p>
@@ -133,11 +131,11 @@ export default function GroupDetailsPage({ groupIds, onBack }: { groupIds: numbe
   if (!group) return null
 
   return (
-    <div className="p-6">
+    <div>
       <button onClick={onBack} className="text-gray-500 hover:text-gray-900 text-sm mb-4 flex items-center gap-1">◀ Back to Groups</button>
 
-      <div className="bg-gray-100 border border-gray-200 rounded-xl p-5 mb-6">
-        <div className="flex items-start justify-between">
+      <div className="bg-gray-100 border border-gray-200 rounded-xl p-4 sm:p-5 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
           <div>
             <h1 className="text-lg font-bold text-gray-900">{group.name}</h1>
             <p className="text-sm text-gray-500 mt-1">{group.description || 'No description'}</p>
@@ -160,8 +158,8 @@ export default function GroupDetailsPage({ groupIds, onBack }: { groupIds: numbe
           <p className="text-sm">No members yet</p>
         </div>
       ) : (
-        <div className="bg-gray-100 border border-gray-200 rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="bg-gray-100 border border-gray-200 rounded-xl overflow-x-auto">
+          <table className="w-full min-w-[500px] text-sm">
             <thead>
               <tr className="border-b border-gray-200 text-gray-500 text-xs uppercase tracking-wider">
                 <th className="text-left px-4 py-3 font-medium">Name</th>

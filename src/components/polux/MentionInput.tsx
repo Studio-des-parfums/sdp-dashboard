@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import type { PoluxUserRef } from '../../types/polux'
+import { FloatingPanel } from './FloatingPanel'
 
 const ASSIGNED_LABEL = 'Personnes assignées'
 
@@ -70,7 +71,7 @@ export function MentionInput({ value, onChange, users, placeholder, onMentionAdd
         className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
       />
       {query !== null && (userSuggestions.length > 0 || showAssignedSuggestion) && (
-        <div className="absolute bottom-full left-0 mb-1 w-60 rounded-lg border border-gray-200 bg-white shadow-lg z-10 py-1">
+        <FloatingPanel anchorRef={inputRef} onClose={() => setQuery(null)} width={240} backdrop={false}>
           {showAssignedSuggestion && (
             <button
               type="button"
@@ -91,7 +92,7 @@ export function MentionInput({ value, onChange, users, placeholder, onMentionAdd
               {u.first_name} {u.last_name}
             </button>
           ))}
-        </div>
+        </FloatingPanel>
       )}
     </div>
   )

@@ -22,6 +22,6 @@ const LYLO_PAGES: Record<string, React.ComponentType> = {
 
 export default function LyloRenderer({ section }: { section: string }) {
   const Page = LYLO_PAGES[section]
-  if (!Page) return <div className="text-sm text-gray-500 p-6">Section inconnue</div>
+  if (!Page) return <div className="text-sm text-gray-500">Section inconnue</div>
   return <Page />
 }

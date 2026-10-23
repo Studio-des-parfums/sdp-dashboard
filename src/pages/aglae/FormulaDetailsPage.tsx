@@ -14,6 +14,7 @@ interface Formula {
   id: number
   reference?: string
   perfume_name?: string
+  date?: string
   customer_id?: number
   file_id?: number
   comment?: string
@@ -37,6 +38,7 @@ interface FormulaDetailsPageProps {
   formulaId: number
   customerId: number
   onBack: () => void
+  onOpenFormula?: (formulaId: number) => void
 }
 
 function parseQuantity(quantity: string | null | undefined): { value: number; valid: boolean } {
@@ -101,13 +103,40 @@ function getFitStyle(
   }
 }
 
-export default function FormulaDetailsPage({ formulaId, customerId, onBack }: FormulaDetailsPageProps) {
+function formatDateDisplay(dateString: string | null | undefined): string {
+  if (!dateString) return 'Non renseignée'
+  const str = dateString.trim()
+  if (!str) return 'Non renseignée'
+  const ddmmyyyyRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/
+  if (ddmmyyyyRegex.test(str)) return str
+  const yyyymmddRegex = /^(\d{4})-(\d{2})-(\d{2})/
+  const match = str.match(yyyymmddRegex)
+  if (match) {
+    const [, y, m, d] = match
+    return `${d}/${m}/${y}`
+  }
+  try {
+    const date = new Date(str)
+    if (!isNaN(date.getTime())) {
+      const day = String(date.getDate()).padStart(2, '0')
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const year = date.getFullYear()
+      return `${day}/${month}/${year}`
+    }
+  } catch {
+    // fallback
+  }
+  return str
+}
+
+export default function FormulaDetailsPage({ formulaId, customerId, onBack, onOpenFormula }: FormulaDetailsPageProps) {
   const { showError, showSuccess } = useToast()
   const [formula, setFormula] = useState<Formula | null>(null)
   const [customerName, setCustomerName] = useState('')
   const [loading, setLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isDuplicating, setIsDuplicating] = useState(false)
   const [editingData, setEditingData] = useState<Formula | null>(null)
   const [lightboxImage, setLightboxImage] = useState<string | null>(null)
   const [previewRotation, setPreviewRotation] = useState(0)
@@ -191,6 +220,30 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
     }
   }
 
+  const handleDuplicate = async () => {
+    if (!formula || isDuplicating) return
+    setIsDuplicating(true)
+    try {
+      const duplicated = await formulasApi.duplicate(formula.id)
+      showSuccess(`Formule dupliquée avec succès : ${duplicated.reference || `#${duplicated.id}`}`)
+      if (onOpenFormula) {
+        onOpenFormula(duplicated.id)
+      } else {
+        const f: Formula = {
+          ...duplicated,
+          booster_notes: duplicated.booster_notes || [],
+          options: duplicated.options || [],
+        }
+        setFormula(f)
+        setEditingData(JSON.parse(JSON.stringify(f)))
+      }
+    } catch {
+      showError('Erreur', 'Impossible de dupliquer la formule')
+    } finally {
+      setIsDuplicating(false)
+    }
+  }
+
   const fetchOrders = async (fId: number | undefined) => {
     if (!fId) return
     setOrdersLoading(true)
@@ -241,6 +294,7 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
     try {
       await formulasApi.updateNotes(formulaId, {
         perfume_name: editingData.perfume_name,
+        date: editingData.date,
         top_notes: editingData.top_notes,
         heart_notes: editingData.heart_notes,
         base_notes: editingData.base_notes,
@@ -275,7 +329,7 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
 
   if (loading) {
     return (
-      <div className="animate-pulse space-y-4 p-6">
+      <div className="animate-pulse space-y-4">
         <div className="h-8 bg-gray-200 rounded w-48" />
         <div className="h-64 bg-gray-200 rounded-xl" />
       </div>
@@ -292,31 +346,44 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center gap-3">
-        <button onClick={onBack} className="text-gray-500 hover:text-gray-900 transition-colors text-lg">←</button>
-        <div>
-          <h1 className="text-lg font-bold text-gray-900">{formula.reference || `Formule #${formula.id}`}</h1>
-          <p className="text-xs text-gray-600">Nom du parfum : {formula.perfume_name || 'Non renseigné'}</p>
-          {customerName && (
-            <p className="text-xs text-gray-600">Client : {customerName}</p>
-          )}
-          {formula.atelier_name && (
-            <p className="text-xs text-gray-600">Atelier : {formula.atelier_name}</p>
-          )}
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <button onClick={onBack} className="text-gray-500 hover:text-gray-900 transition-colors text-lg p-1">←</button>
+          <div className="min-w-0">
+            <h1 className="text-lg font-bold text-gray-900 truncate">{formula.reference || `Formule #${formula.id}`}</h1>
+            <p className="text-xs text-gray-600 truncate">Nom du parfum : {formula.perfume_name || 'Non renseigné'}</p>
+            <p className="text-xs text-gray-600 truncate">Date : {formatDateDisplay(formula.date)}</p>
+            {customerName && (
+              <p className="text-xs text-gray-600 truncate">Client : {customerName}</p>
+            )}
+            {formula.atelier_name && (
+              <p className="text-xs text-gray-600 truncate">Atelier : {formula.atelier_name}</p>
+            )}
+          </div>
         </div>
         {!isEditing && (
-          <Button size="sm" onClick={() => setIsEditing(true)} className="ml-auto">✏️ Modifier</Button>
+          <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleDuplicate}
+              disabled={isDuplicating}
+            >
+              {isDuplicating ? '⏳ Duplication...' : '📑 Dupliquer'}
+            </Button>
+            <Button size="sm" onClick={() => setIsEditing(true)}>✏️ Modifier</Button>
+          </div>
         )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-gray-100 border border-gray-200 rounded-xl p-6">
+        <div className="bg-gray-100 border border-gray-200 rounded-xl p-4 sm:p-6">
           <h2 className="text-sm font-semibold text-gray-900 mb-4">🧪 Composition de la formule</h2>
 
           {!isEditing ? (
             <>
-              <div className={`grid gap-4 ${hasBoosterNotes ? 'grid-cols-4' : 'grid-cols-3'}`}>
+              <div className={`grid gap-4 grid-cols-1 sm:grid-cols-2 ${hasBoosterNotes ? 'xl:grid-cols-4' : 'xl:grid-cols-3'}`}>
                 {(['top_notes', 'heart_notes', 'base_notes'] as const).map((noteType, ti) => {
                   const stats = [topStats, heartStats, baseStats][ti]
                   const notes = displayData?.[noteType] || []
@@ -414,14 +481,26 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
             </>
           ) : (
             <>
-              <div className="mb-5">
-                <label className="text-xs text-gray-600 mb-1 block">Nom du parfum</label>
-                <input
-                  type="text"
-                  value={editingData?.perfume_name || ''}
-                  onChange={e => setEditingData(prev => prev ? { ...prev, perfume_name: e.target.value } : prev)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-indigo-500 transition-colors"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+                <div>
+                  <label className="text-xs text-gray-600 mb-1 block">Nom du parfum</label>
+                  <input
+                    type="text"
+                    value={editingData?.perfume_name || ''}
+                    onChange={e => setEditingData(prev => prev ? { ...prev, perfume_name: e.target.value } : prev)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-indigo-500 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-600 mb-1 block">Date de la formule</label>
+                  <input
+                    type="text"
+                    placeholder="JJ/MM/AAAA ou AAAA-MM-JJ"
+                    value={editingData?.date || ''}
+                    onChange={e => setEditingData(prev => prev ? { ...prev, date: e.target.value } : prev)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-indigo-500 transition-colors"
+                  />
+                </div>
               </div>
 
               <div className="space-y-5">
@@ -511,7 +590,7 @@ export default function FormulaDetailsPage({ formulaId, customerId, onBack }: Fo
         </div>
 
         <div className="space-y-6">
-          <div className="bg-gray-100 border border-gray-200 rounded-xl p-6">
+          <div className="bg-gray-100 border border-gray-200 rounded-xl p-4 sm:p-6">
             <h2 className="text-sm font-semibold text-gray-900 mb-4">🖼 Document associé</h2>
             {formula.file_id ? (
               <div>

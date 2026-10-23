@@ -32,7 +32,34 @@ interface Formula {
   id: number
   reference?: string
   perfume_name?: string
+  date?: string
   file_id?: number
+}
+
+function formatDateDisplay(dateString: string | null | undefined): string {
+  if (!dateString) return ''
+  const str = dateString.trim()
+  if (!str) return ''
+  const ddmmyyyyRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/
+  if (ddmmyyyyRegex.test(str)) return str
+  const yyyymmddRegex = /^(\d{4})-(\d{2})-(\d{2})/
+  const match = str.match(yyyymmddRegex)
+  if (match) {
+    const [, y, m, d] = match
+    return `${d}/${m}/${y}`
+  }
+  try {
+    const date = new Date(str)
+    if (!isNaN(date.getTime())) {
+      const day = String(date.getDate()).padStart(2, '0')
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const year = date.getFullYear()
+      return `${day}/${month}/${year}`
+    }
+  } catch {
+    // fallback
+  }
+  return str
 }
 
 interface CustomerDetailsPageProps {
@@ -179,9 +206,9 @@ export default function CustomerDetailsPage({ customerId, onBack, onCustomerDele
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <button onClick={onBack} className="text-gray-600 hover:text-gray-900 transition-colors">⬅</button>
-        <h1 className="text-lg font-bold text-gray-900 flex-1">{customer.name}</h1>
+      <div className="flex flex-wrap items-center gap-3">
+        <button onClick={onBack} className="text-gray-600 hover:text-gray-900 transition-colors p-1">⬅</button>
+        <h1 className="text-lg font-bold text-gray-900 flex-1 truncate">{customer.name}</h1>
         {!isEditing ? (
           <Button size="sm" onClick={handleEdit}>✏️ Modifier</Button>
         ) : (
@@ -192,7 +219,7 @@ export default function CustomerDetailsPage({ customerId, onBack, onCustomerDele
         )}
       </div>
 
-      <div className="bg-gray-100 border border-gray-200 rounded-xl p-6">
+      <div className="bg-gray-100 border border-gray-200 rounded-xl p-4 sm:p-6">
         {!isEditing ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-3">
@@ -252,7 +279,7 @@ export default function CustomerDetailsPage({ customerId, onBack, onCustomerDele
         )}
       </div>
 
-      <div className="bg-gray-100 border border-gray-200 rounded-xl p-6">
+      <div className="bg-gray-100 border border-gray-200 rounded-xl p-4 sm:p-6">
         <h2 className="text-sm font-semibold text-gray-900 mb-4">🧪 Formules disponibles ({formulas.length})</h2>
         {formulas.length === 0 ? (
           <p className="text-sm text-gray-600 text-center py-6">Aucune formule disponible pour ce client</p>
@@ -268,6 +295,9 @@ export default function CustomerDetailsPage({ customerId, onBack, onCustomerDele
                   className="text-xs text-gray-600 hover:text-indigo-600 pl-3 pr-2 py-1.5"
                 >
                   🔬 {f.reference || `Formule #${f.id}`}
+                  {f.date && (
+                    <span className="text-gray-500 ml-1.5 text-[11px]">({formatDateDisplay(f.date)})</span>
+                  )}
                 </button>
                 {!f.file_id && (
                   <>
@@ -293,7 +323,7 @@ export default function CustomerDetailsPage({ customerId, onBack, onCustomerDele
         )}
       </div>
 
-      <div className="bg-gray-100 border border-gray-200 rounded-xl p-6">
+      <div className="bg-gray-100 border border-gray-200 rounded-xl p-4 sm:p-6">
         <h2 className="text-sm font-semibold text-gray-900 mb-4">📦 Commandes ({orders.length})</h2>
         {orders.length === 0 ? (
           <p className="text-sm text-gray-600 text-center py-6">Aucune commande</p>
@@ -339,7 +369,7 @@ export default function CustomerDetailsPage({ customerId, onBack, onCustomerDele
       </div>
 
       {customer.files && customer.files.length > 0 && (
-        <div className="bg-gray-100 border border-gray-200 rounded-xl p-6">
+        <div className="bg-gray-100 border border-gray-200 rounded-xl p-4 sm:p-6">
           <h2 className="text-sm font-semibold text-gray-900 mb-4">📁 Fichiers ({customer.files.length})</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {customer.files.map((f) => (

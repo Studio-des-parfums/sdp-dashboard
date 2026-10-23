@@ -47,6 +47,8 @@ export interface AdminUser {
   last_name: string
   role_id: number
   role_name: string
+  /** Slugs des espaces officiels Polux auxquels appartient l'utilisateur. */
+  team_slugs: string[]
   is_active: boolean
   last_login: string | null
   created_at: string
@@ -87,8 +89,11 @@ export const adminClient = {
   getUsers: () =>
     request<AdminUser[]>('/users'),
 
-  createUser: (data: { email: string; first_name: string; last_name: string; role_id: number }) =>
+  createUser: (data: { email: string; first_name: string; last_name: string; role_id: number; team_slugs: string[] }) =>
     request<AdminUser>('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
+
+  removeTeamFromAllUsers: (teamSlug: string) =>
+    request<{ success: boolean }>(`/user-teams/${encodeURIComponent(teamSlug)}`, { method: 'DELETE' }),
 
   updateUser: (id: number, data: Partial<AdminUser>) =>
     request<AdminUser>(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),

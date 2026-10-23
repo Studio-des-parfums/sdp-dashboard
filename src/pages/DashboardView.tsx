@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Activity, ChevronDown, LogOut } from 'lucide-react'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { ArrowLeft, Activity, ChevronDown, LogOut, Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { api } from '../api/client'
 import { Sidebar } from '../components/Sidebar'
 import AdminPage from './AdminPage'
@@ -34,13 +34,42 @@ const LYLO_SECTIONS = new Set(['accueil', 'clients', 'equipe', 'formules', 'ques
 export function DashboardView() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { logout, user, sdpUser } = useAuth()
+
+  // Rétrocompatibilité avec d'anciens liens utilisant les slugs pré-renommage (marketplace/analytics).
+  const normalizedSlug = slug === 'marketplace' ? 'aglae' : slug === 'analytics' ? 'lylo' : slug
+  const isHome = normalizedSlug === 'sdp-core'
+
+
   const [dashboard, setDashboard] = useState<Dashboard | null>(null)
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [collapsed, setCollapsed] = useState(false)
-  const [activeSection, setActiveSection] = useState('overview')
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const urlSection = searchParams.get('section')
+  const [activeSection, setActiveSectionState] = useState('overview')
+
+  // Synchronise la section active quand le query param ?section= change (bouton retour / navigation historique)
+  useEffect(() => {
+    if (!dashboard) return
+    const defaultSection = isHome ? 'overview' : dashboard.sections[0]?.id || 'overview'
+    const target = urlSection || defaultSection
+    setActiveSectionState(target)
+  }, [urlSection, isHome, dashboard])
+
+  // Garde la section active dans l'URL (?section=...) et ajoute une entrée dans l'historique
+  // pour permettre le retour à la section précédente.
+  const setActiveSection = useCallback((section: string) => {
+    setActiveSectionState(section)
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      if (next.get('section') === section) return prev
+      next.set('section', section)
+      return next
+    })
+  }, [setSearchParams])
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [openTicketsCount, setOpenTicketsCount] = useState(0)
 
@@ -52,9 +81,7 @@ export function DashboardView() {
   const [selectOpen, setSelectOpen] = useState(false)
   const [createTeamOpen, setCreateTeamOpen] = useState(false)
 
-  // Rétrocompatibilité avec d'anciens liens utilisant les slugs pré-renommage (marketplace/analytics).
-  const normalizedSlug = slug === 'marketplace' ? 'aglae' : slug === 'analytics' ? 'lylo' : slug
-  const isHome = normalizedSlug === 'sdp-core'
+
 
   const [projectsLoaded, setProjectsLoaded] = useState(false)
 
@@ -81,21 +108,32 @@ export function DashboardView() {
     api.getDashboard(slug)
       .then(async (d) => {
         if (normalized === 'polux') {
-          const teams = await poluxApi.getTeams().catch(() => [])
+          const isPoluxAdmin = sdpUser?.role_name === 'admin'
+          const [teams, leadsAccessIds, currentPoluxUser] = await Promise.all([
+            poluxApi.getTeams().catch(() => []),
+            poluxApi.getLeadsAccess().catch(() => []),
+            poluxApi.getCurrentUser().catch(() => null),
+          ])
+          const hasAccess = (memberIds: number[]) =>
+            isPoluxAdmin || (!!currentPoluxUser && memberIds.includes(currentPoluxUser.id))
           d = {
             ...d,
             sections: [
-              ...d.sections,
-              ...teams.map((team) => ({ id: `team-${team.slug}`, name: team.name, icon: 'Users', metricIds: [], chartIds: [] })),
+              ...d.sections.filter((s) => s.id !== 'leads' || hasAccess(leadsAccessIds)),
+              ...teams
+                .filter((team) => hasAccess(team.member_ids))
+                .map((team) => ({ id: `team-${team.slug}`, name: team.name, icon: 'Users', color: team.color, metricIds: [], chartIds: [] })),
             ],
           }
         }
         setDashboard(d)
-        setActiveSection(isHome ? 'overview' : d.sections[0]?.id || 'overview')
+        const urlSection = searchParams.get('section')
+        setActiveSectionState(isHome ? 'overview' : urlSection || d.sections[0]?.id || 'overview')
       })
       .catch(() => setError('Impossible de charger le dashboard'))
       .finally(() => setLoading(false))
-  }, [slug, isHome])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, isHome, sdpUser?.role_name])
 
   // Une fois la liste des projets autorisés chargée, on vérifie que le projet demandé
   // (autre que l'accueil, toujours accessible) en fait bien partie.
@@ -105,6 +143,37 @@ export function DashboardView() {
     navigate(`/project/${s}`)
     setSelectOpen(false)
   }, [navigate])
+
+  const handleBack = useCallback(() => {
+    if (selectedFormulaId !== null) {
+      setSelectedFormulaId(null)
+      return
+    }
+    if (selectedCustomerId !== null) {
+      setSelectedCustomerId(null)
+      return
+    }
+    if (selectedOrderId !== null) {
+      setSelectedOrderId(null)
+      return
+    }
+    if (selectedGroupIds.length > 0) {
+      setSelectedGroupIds([])
+      return
+    }
+    if (window.history.state && typeof window.history.state.idx === 'number' && window.history.state.idx > 0) {
+      navigate(-1)
+    } else {
+      navigate('/')
+    }
+  }, [navigate, selectedFormulaId, selectedCustomerId, selectedOrderId, selectedGroupIds])
+
+  useEffect(() => {
+    setSelectedCustomerId(null)
+    setSelectedFormulaId(null)
+    setSelectedGroupIds([])
+    setSelectedOrderId(null)
+  }, [activeSection])
 
   const currentProject = projects.find((p) => p.slug === normalizedSlug)
   const isMarketplace = normalizedSlug === 'aglae'
@@ -133,47 +202,69 @@ export function DashboardView() {
         activeSection={activeSection}
         onSectionChange={setActiveSection}
         collapsed={collapsed}
+        mobileOpen={mobileMenuOpen}
+        onCloseMobile={() => setMobileMenuOpen(false)}
         userMode={isUserMode}
         onOpenSettings={() => setSettingsOpen(true)}
         onLogout={() => { logout(); navigate('/login') }}
         badges={isAdmin && openTicketsCount > 0 ? { tickets: openTicketsCount } : undefined}
+        projects={projects}
+        currentSlug={normalizedSlug}
+        onSwitchProject={switchProject}
         groupedSection={isPolux ? {
-          label: 'Tâches Équipes',
-          sectionIds: (dashboard?.sections ?? []).filter((s) => s.id.startsWith('team-')).map((s) => s.id),
+          label: 'Espaces',
+          sectionIds: (dashboard?.sections ?? []).filter((s) => s.id.startsWith('team-') || s.id === 'leads').map((s) => s.id),
           addLabel: 'Ajouter une équipe',
           onAddClick: () => setCreateTeamOpen(true),
         } : undefined}
       />
       <main className="flex-1 overflow-y-auto">
-        <div className="h-14 border-b border-gray-200 flex items-center px-6 gap-4">
+        <div className="h-14 border-b border-gray-200 flex items-center px-4 md:px-6 gap-2 md:gap-4">
           <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="text-gray-600 hover:text-gray-900 transition-colors text-xs"
+            type="button"
+            onClick={() => setMobileMenuOpen(true)}
+            className="md:hidden text-gray-600 hover:text-gray-900 transition-colors p-1"
+            title="Menu"
+            aria-label="Ouvrir le menu"
           >
-            {collapsed ? '→' : '←'}
+            <Menu size={18} />
           </button>
           <button
-            onClick={() => navigate('/')}
+            type="button"
+            onClick={() => setCollapsed(!collapsed)}
+            className="hidden md:flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors p-1.5 rounded-lg"
+            title={collapsed ? 'Agrandir la barre latérale' : 'Réduire la barre latérale'}
+            aria-label={collapsed ? 'Agrandir la barre latérale' : 'Réduire la barre latérale'}
+          >
+            {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+          </button>
+          <button
+            type="button"
+            onClick={handleBack}
             className="text-gray-600 hover:text-gray-900 transition-colors flex items-center gap-1 text-xs"
+            title="Page précédente"
+            aria-label="Page précédente"
           >
             <ArrowLeft size={14} />
-            Retour
+            <span className="hidden sm:inline">Retour</span>
           </button>
 
-          <div className="h-6 w-px bg-gray-200" />
+          <div className="hidden md:block h-6 w-px bg-gray-200" />
 
-          <span className="text-sm font-semibold text-gray-900">Tableau de bord</span>
+          <span className="hidden md:inline text-sm font-semibold text-gray-900 truncate">
+            {isMarketplace ? 'SDP OCR' : 'Tableau de bord'}
+          </span>
 
-          <div className="relative ml-auto">
+          <div className="hidden md:block relative ml-auto">
             <button
               onClick={() => setSelectOpen(!selectOpen)}
-              className="flex items-center gap-2 bg-white hover:bg-gray-200 text-xs text-gray-600 px-3 py-1.5 rounded-lg transition-colors"
+              className="flex items-center gap-2 bg-white hover:bg-gray-200 text-xs text-gray-600 px-2.5 sm:px-3 py-1.5 rounded-lg transition-colors max-w-[140px] sm:max-w-none"
             >
               {currentProject && (
-                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: currentProject.color }} />
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: currentProject.color }} />
               )}
-              {currentProject?.name ?? 'Chargement...'}
-              <ChevronDown size={14} className={`transition-transform ${selectOpen ? 'rotate-180' : ''}`} />
+              <span className="truncate">{currentProject?.name ?? 'Chargement...'}</span>
+              <ChevronDown size={14} className={`shrink-0 transition-transform ${selectOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {selectOpen && (
@@ -198,19 +289,21 @@ export function DashboardView() {
             )}
           </div>
 
-          <NotificationsButton />
-          <MessagingButton />
+          <div className="flex items-center gap-2 md:gap-4 ml-auto md:ml-0">
+            <NotificationsButton />
+            <MessagingButton />
+          </div>
 
           <button
             onClick={() => { logout(); navigate('/login'); }}
-            className="text-gray-600 hover:text-red-700 transition-colors"
+            className="hidden md:block text-gray-600 hover:text-red-700 transition-colors p-1"
             title="Déconnexion"
           >
             <LogOut size={16} />
           </button>
         </div>
 
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {loading ? (
             <div className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -264,6 +357,8 @@ export function DashboardView() {
             ) : isPolux ? (
               <PoluxRenderer
                 section={activeSection}
+                isAdmin={sdpUser?.role_name === 'admin'}
+                onSectionChange={setActiveSection}
                 onTeamDeleted={(teamSlug) => {
                   setDashboard((prev) => prev && { ...prev, sections: prev.sections.filter((s) => s.id !== `team-${teamSlug}`) })
                   setActiveSection('accueil')
@@ -358,7 +453,7 @@ export function DashboardView() {
           onCreated={(team) => {
             setDashboard((prev) => prev && {
               ...prev,
-              sections: [...prev.sections, { id: `team-${team.slug}`, name: team.name, icon: 'Users', metricIds: [], chartIds: [] }],
+              sections: [...prev.sections, { id: `team-${team.slug}`, name: team.name, icon: 'Users', color: team.color, metricIds: [], chartIds: [] }],
             })
             setActiveSection(`team-${team.slug}`)
           }}
