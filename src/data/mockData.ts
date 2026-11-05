@@ -7,22 +7,22 @@ export const mockUser = {
 export const mockNotifications: Notification[] = [
   { id: 1, message: 'Mise à jour SDP Core v2.4 déployée avec succès', time: 'Il y a 2 heures' },
   { id: 2, message: 'Nouveau rapport mensuel disponible dans Analytics', time: 'Il y a 5 heures' },
-  { id: 3, message: 'Maintenance prévue sur Admin Portal ce weekend', time: 'Il y a 1 jour' },
+  { id: 3, message: 'Maintenance prévue sur Admin ce weekend', time: 'Il y a 1 jour' },
 ]
 
 export const mockProjects: Project[] = [
-  { id: 1, name: 'Accueil', slug: 'sdp-core', description: 'Plateforme principale de gestion des paiements', color: '#996F56', status: 'active', created_at: '2024-01-01T00:00:00Z' },
+  { id: 1, name: 'Portail', slug: 'sdp-core', description: 'Plateforme principale de gestion des paiements', color: '#996F56', status: 'active', created_at: '2024-01-01T00:00:00Z' },
   { id: 2, name: 'Sidonie', slug: 'aglae', description: 'Place de marché B2B', color: '#f59e0b', status: 'active', created_at: '2024-01-01T00:00:00Z' },
   { id: 3, name: 'Ninno', slug: 'mobile-app', description: 'Application mobile clients', color: '#10b981', status: 'active', created_at: '2024-01-01T00:00:00Z' },
   { id: 4, name: 'Lylo', slug: 'lylo', description: 'Back-office Lylo', color: '#996f56', status: 'active', created_at: '2024-01-01T00:00:00Z' },
-  { id: 5, name: 'Admin Portal', slug: 'admin-portal', description: "Portail d'administration interne", color: '#8b5cf6', status: 'maintenance', created_at: '2024-01-01T00:00:00Z' },
+  { id: 5, name: 'Admin', slug: 'admin-portal', description: "Portail d'administration interne", color: '#8b5cf6', status: 'maintenance', created_at: '2024-01-01T00:00:00Z' },
   { id: 6, name: 'Nono', slug: 'nono', description: 'Backoffice du robot magasin', color: '#0ea5e9', status: 'active', created_at: '2024-01-01T00:00:00Z' },
   { id: 7, name: 'Polux', slug: 'polux', description: 'Gestion de projets et de tâches', color: '#6366f1', status: 'active', created_at: '2024-01-01T00:00:00Z' },
 ]
 
 export const mockDashboards: Record<string, Dashboard> = {
   'sdp-core': {
-    id: 1, name: 'Accueil', slug: 'sdp-core', description: 'Plateforme principale de gestion des paiements', color: '#996F56', status: 'active', created_at: '2024-01-01T00:00:00Z',
+    id: 1, name: 'Portail', slug: 'sdp-core', description: 'Plateforme principale de gestion des paiements', color: '#996F56', status: 'active', created_at: '2024-01-01T00:00:00Z',
     sections: [
       { id: 'help', name: 'Besoin d\'aide ?', icon: 'Headphones', metricIds: [], chartIds: [] },
     ],
@@ -92,7 +92,7 @@ export const mockDashboards: Record<string, Dashboard> = {
     charts: [],
   },
   'admin-portal': {
-    id: 5, name: 'Admin Portal', slug: 'admin-portal', description: "Portail d'administration interne", color: '#8b5cf6', status: 'maintenance', created_at: '2024-01-01T00:00:00Z',
+    id: 5, name: 'Admin', slug: 'admin-portal', description: "Portail d'administration interne", color: '#8b5cf6', status: 'maintenance', created_at: '2024-01-01T00:00:00Z',
     sections: [
       { id: 'projects', name: 'Projets', icon: 'LayoutDashboard', metricIds: [], chartIds: [] },
       { id: 'users', name: 'Utilisateurs', icon: 'Users', metricIds: [], chartIds: [] },
