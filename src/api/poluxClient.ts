@@ -593,12 +593,18 @@ export const poluxApi = {
   },
 
   // Espaces (admin) : liste, et création à partir d'un projet dashboard déjà créé (même slug).
+  // Équipes d'un espace donné (admin), indépendamment de l'espace courant.
+  async getWorkspaceTeams(slug: string): Promise<PoluxTeam[]> {
+    if (USE_MOCK) return poluxApi.getTeams()
+    return request('/teams', { headers: { 'x-polux-workspace': slug } })
+  },
+
   async getWorkspaces(): Promise<PoluxWorkspace[]> {
     if (USE_MOCK) return delay([{ id: 1, slug: MAIN_POLUX_WORKSPACE, name: 'Polux', color: '#6366f1', created_at: new Date().toISOString() }])
     return request('/workspaces')
   },
 
-  async createWorkspace(input: { slug: string; name: string; color: string; copy_teams_from: string | null }): Promise<PoluxWorkspace> {
+  async createWorkspace(input: { slug: string; name: string; color: string; copy_teams_from: string | null; copy_team_ids?: number[] }): Promise<PoluxWorkspace> {
     if (USE_MOCK) return delay({ id: Date.now(), slug: input.slug, name: input.name, color: input.color, created_at: new Date().toISOString() })
     return request('/workspaces', { method: 'POST', body: JSON.stringify(input) })
   },

@@ -237,7 +237,23 @@ function NewPoluxWorkspaceButton({ projects, onCreated }: { projects: AdminProje
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ name: '', color: '#6366f1', copyTeamsFrom: '' })
+  const [sourceTeams, setSourceTeams] = useState<PoluxTeam[]>([])
+  const [selectedTeamIds, setSelectedTeamIds] = useState<number[]>([])
   const poluxProjects = projects.filter(p => p.kind === 'polux')
+
+  // Espace source choisi : on charge ses équipes, toutes cochées par défaut.
+  useEffect(() => {
+    setSourceTeams([])
+    setSelectedTeamIds([])
+    if (!form.copyTeamsFrom) return
+    poluxApi.getWorkspaceTeams(form.copyTeamsFrom)
+      .then(teams => { setSourceTeams(teams); setSelectedTeamIds(teams.map(t => t.id)) })
+      .catch((err: any) => showError('Équipes introuvables', err.message))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.copyTeamsFrom])
+
+  const toggleTeam = (id: number) =>
+    setSelectedTeamIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id])
 
   const create = async () => {
     if (!form.name.trim()) {
@@ -248,7 +264,7 @@ function NewPoluxWorkspaceButton({ projects, onCreated }: { projects: AdminProje
     let project: AdminProject | null = null
     try {
       project = await adminClient.createPoluxWorkspace({ name: form.name.trim(), color: form.color })
-      await poluxApi.createWorkspace({ slug: project.slug, name: project.name, color: form.color, copy_teams_from: form.copyTeamsFrom || null })
+      await poluxApi.createWorkspace({ slug: project.slug, name: project.name, color: form.color, copy_teams_from: form.copyTeamsFrom && selectedTeamIds.length > 0 ? form.copyTeamsFrom : null, copy_team_ids: selectedTeamIds })
       onCreated(project)
       setOpen(false)
       setForm({ name: '', color: '#6366f1', copyTeamsFrom: '' })
@@ -278,9 +294,27 @@ function NewPoluxWorkspaceButton({ projects, onCreated }: { projects: AdminProje
             <span className="text-gray-600">Équipes</span>
             <select value={form.copyTeamsFrom} onChange={e => setForm(f => ({ ...f, copyTeamsFrom: e.target.value }))} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900">
               <option value="">Partir de zéro</option>
-              {poluxProjects.map(p => <option key={p.slug} value={p.slug}>Reprendre les équipes de {p.name}</option>)}
+              {poluxProjects.map(p => <option key={p.slug} value={p.slug}>Reprendre des équipes de {p.name}</option>)}
             </select>
           </label>
+          {form.copyTeamsFrom && (
+            <div className="max-h-48 overflow-y-auto rounded-lg border border-gray-200">
+              {sourceTeams.length > 1 && (
+                <button type="button" onClick={() => setSelectedTeamIds(selectedTeamIds.length === sourceTeams.length ? [] : sourceTeams.map(t => t.id))} className="w-full px-3 py-1.5 text-left text-xs text-indigo-600 hover:bg-gray-50">
+                  {selectedTeamIds.length === sourceTeams.length ? 'Tout décocher' : 'Tout cocher'}
+                </button>
+              )}
+              {sourceTeams.map(t => (
+                <label key={t.id} className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50">
+                  <input type="checkbox" checked={selectedTeamIds.includes(t.id)} onChange={() => toggleTeam(t.id)} />
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: t.color }} />
+                  {t.name}
+                  <span className="ml-auto text-xs text-gray-400">{t.member_ids.length}</span>
+                </label>
+              ))}
+              {sourceTeams.length === 0 && <p className="px-3 py-2 text-xs text-gray-500">Aucune équipe dans cet espace</p>}
+            </div>
+          )}
           <p className="text-xs text-gray-500">Les équipes reprises sont copiées : les modifier n'affecte pas l'espace d'origine.</p>
           <div className="flex justify-end gap-2">
             <button onClick={() => setOpen(false)} className="text-gray-500 hover:text-gray-900 px-3 py-2 rounded-lg text-sm transition-colors">Annuler</button>
