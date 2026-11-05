@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Activity, ChevronDown, LogOut, Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { ArrowLeft, Activity, ChevronDown, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Plus } from 'lucide-react'
 import { api } from '../api/client'
 import { Sidebar } from '../components/Sidebar'
 import AdminPage from './AdminPage'
@@ -19,6 +19,7 @@ import LyloRenderer from '../components/lylo/LyloRenderer'
 import NonoRenderer from '../components/nono/NonoRenderer'
 import PoluxRenderer from '../components/polux/PoluxRenderer'
 import { CreateTeamModal } from '../components/polux/CreateTeamModal'
+import { NewWorkspaceButton } from '../components/polux/NewWorkspaceButton'
 import { poluxApi, isPoluxSlug, setPoluxWorkspace, MAIN_POLUX_WORKSPACE } from '../api/poluxClient'
 import HomePage from '../components/home/HomePage'
 import { mockUser, mockNotifications } from '../data/mockData'
@@ -82,6 +83,7 @@ export function DashboardView() {
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null)
 
   const [selectOpen, setSelectOpen] = useState(false)
+  const [workspaceSelectOpen, setWorkspaceSelectOpen] = useState(false)
   const [createTeamOpen, setCreateTeamOpen] = useState(false)
 
 
@@ -184,6 +186,14 @@ export function DashboardView() {
   const isLylo = normalizedSlug === 'lylo'
   const isNono = normalizedSlug === 'nono'
   const isPolux = isPoluxSlug(normalizedSlug)
+  // Espaces Polux accessibles (le principal en premier) : un seul « Polux » dans le sélecteur de
+  // projets, le choix de l'espace se fait dans le sélecteur dédié affiché à sa gauche.
+  const poluxWorkspaces = projects
+    .filter((p) => p.kind === 'polux' || isPoluxSlug(p.slug))
+    .sort((a, b) => Number(b.slug === MAIN_POLUX_WORKSPACE) - Number(a.slug === MAIN_POLUX_WORKSPACE))
+  const projectChoices = projects.filter((p) => !isPoluxSlug(p.slug) || p.slug === poluxWorkspaces[0]?.slug)
+  const currentWorkspace = isPolux ? currentProject : undefined
+  const isSdpAdmin = sdpUser?.role_name === 'admin'
   const isAdmin = normalizedSlug === 'admin-portal'
   const isOcrSection = isMarketplace && MARKETPLACE_OCR_SECTIONS.has(activeSection)
   const isNinnoAdminSection = isNinno && NINNO_ADMIN_SECTIONS.has(activeSection)
@@ -258,15 +268,60 @@ export function DashboardView() {
             {isMarketplace ? 'SDP OCR' : 'Tableau de bord'}
           </span>
 
-          <div className="hidden md:block relative ml-auto">
+          {isPolux && (
+            <div className="hidden md:block relative ml-auto">
+              <button
+                onClick={() => setWorkspaceSelectOpen(!workspaceSelectOpen)}
+                className="flex items-center gap-2 bg-white hover:bg-gray-200 text-xs text-gray-600 px-2.5 sm:px-3 py-1.5 rounded-lg transition-colors"
+                title="Espace Polux"
+              >
+                {currentWorkspace && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: currentWorkspace.color }} />}
+                <span className="truncate max-w-[160px]">{currentWorkspace?.name ?? 'Espace'}</span>
+                <ChevronDown size={14} className={`shrink-0 transition-transform ${workspaceSelectOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {workspaceSelectOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setWorkspaceSelectOpen(false)} />
+                  <div className="absolute right-0 top-full mt-1 w-56 bg-white border border-gray-300 rounded-lg shadow-xl z-20 py-1">
+                    <p className="px-3 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Espaces</p>
+                    {poluxWorkspaces.map((w) => (
+                      <button
+                        key={w.id}
+                        onClick={() => { setWorkspaceSelectOpen(false); switchProject(w.slug) }}
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors ${w.slug === normalizedSlug ? 'text-indigo-600 bg-indigo-600/10' : 'text-gray-600 hover:bg-gray-200'}`}
+                      >
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: w.color }} />
+                        <span className="truncate">{w.name}</span>
+                      </button>
+                    ))}
+                    {isSdpAdmin && (
+                      <div className="border-t border-gray-200 mt-1 pt-1">
+                        <NewWorkspaceButton
+                          projects={projects}
+                          onCreated={(p) => { setProjects((prev) => [...prev, p]); setWorkspaceSelectOpen(false); switchProject(p.slug) }}
+                          renderTrigger={(toggle) => (
+                            <button onClick={toggle} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left text-indigo-600 hover:bg-gray-200 transition-colors">
+                              <Plus size={12} /> Ajouter un espace
+                            </button>
+                          )}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          <div className={`hidden md:block relative ${isPolux ? '' : 'ml-auto'}`}>
             <button
               onClick={() => setSelectOpen(!selectOpen)}
               className="flex items-center gap-2 bg-white hover:bg-gray-200 text-xs text-gray-600 px-2.5 sm:px-3 py-1.5 rounded-lg transition-colors max-w-[140px] sm:max-w-none"
             >
               {currentProject && (
-                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: currentProject.color }} />
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: isPolux ? poluxWorkspaces[0]?.color ?? currentProject.color : currentProject.color }} />
               )}
-              <span className="truncate">{currentProject?.name ?? 'Chargement...'}</span>
+              <span className="truncate">{isPolux ? 'Polux' : currentProject?.name ?? 'Chargement...'}</span>
               <ChevronDown size={14} className={`shrink-0 transition-transform ${selectOpen ? 'rotate-180' : ''}`} />
             </button>
 
@@ -274,14 +329,14 @@ export function DashboardView() {
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setSelectOpen(false)} />
                 <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-gray-300 rounded-lg shadow-xl z-20 py-1">
-                  {projects.map((p) => (
+                  {projectChoices.map((p) => (
                     <button
                       key={p.id}
                       onClick={() => switchProject(p.slug)}
-                      className={`w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors ${p.slug === normalizedSlug ? 'text-indigo-600 bg-indigo-600/10' : 'text-gray-600 hover:bg-gray-200'}`}
+                      className={`w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors ${p.slug === normalizedSlug || (isPolux && isPoluxSlug(p.slug)) ? 'text-indigo-600 bg-indigo-600/10' : 'text-gray-600 hover:bg-gray-200'}`}
                     >
                       <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
-                      {p.name}
+                      {isPoluxSlug(p.slug) ? 'Polux' : p.name}
                       {p.status === 'maintenance' && (
                         <span className="ml-auto text-[10px] text-amber-600">Maint.</span>
                       )}
