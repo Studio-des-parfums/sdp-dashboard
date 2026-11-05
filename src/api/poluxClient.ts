@@ -609,6 +609,11 @@ export const poluxApi = {
     return request('/workspaces', { method: 'POST', body: JSON.stringify(input) })
   },
 
+  async deleteWorkspace(slug: string): Promise<void> {
+    if (USE_MOCK) return delay(undefined)
+    await request(`/workspaces/${slug}`, { method: 'DELETE' })
+  },
+
   // Départ d'un utilisateur (admin) : travail encore en cours à transférer.
   async getUserOpenWork(userId: number): Promise<PoluxUserOpenWork> {
     if (USE_MOCK) {

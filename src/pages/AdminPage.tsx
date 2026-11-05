@@ -187,6 +187,9 @@ function ProjectsTab() {
             </button>
             {expanded === p.id && (
               <div className="border-t border-gray-200 p-4 space-y-4">
+                {p.kind === 'polux' && p.slug !== 'polux' && (
+                  <DeletePoluxWorkspace project={p} onDeleted={() => { setExpanded(null); setProjects(prev => prev.filter(x => x.id !== p.id)) }} />
+                )}
                 <div className="flex gap-2">
                   <input
                     value={newNote}
@@ -322,6 +325,48 @@ function NewPoluxWorkspaceButton({ projects, onCreated }: { projects: AdminProje
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// Suppression d'un espace Polux (jamais le principal) : équipes, tâches et leads sont effacés
+// définitivement. Confirmation en retapant le nom de l'espace.
+function DeletePoluxWorkspace({ project, onDeleted }: { project: AdminProject; onDeleted: () => void }) {
+  const { showSuccess, showError } = useToast()
+  const [open, setOpen] = useState(false)
+  const [confirmName, setConfirmName] = useState('')
+  const [deleting, setDeleting] = useState(false)
+
+  const remove = async () => {
+    setDeleting(true)
+    try {
+      // Polux d'abord : si ça échoue, le projet (et donc l'accès) reste intact.
+      await poluxApi.deleteWorkspace(project.slug)
+      await adminClient.deletePoluxWorkspace(project.id)
+      showSuccess('Espace supprimé', project.name)
+      onDeleted()
+    } catch (err: any) {
+      showError("Échec de la suppression de l'espace", err.message)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="flex items-center gap-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-700 px-3 py-2 rounded-lg text-sm transition-colors">
+        <Trash2 size={14} /> Supprimer l'espace
+      </button>
+    )
+  }
+  return (
+    <div className="space-y-2 rounded-lg border border-red-200 bg-red-50/50 p-3 text-sm">
+      <p className="text-gray-900">Supprimer définitivement <strong>{project.name}</strong> : ses équipes, tâches, leads et pièces jointes seront effacés. Cette action est irréversible.</p>
+      <input value={confirmName} onChange={e => setConfirmName(e.target.value)} placeholder={`Tapez « ${project.name} » pour confirmer`} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900" />
+      <div className="flex gap-2">
+        <button onClick={remove} disabled={deleting || confirmName.trim() !== project.name} className="bg-red-600 hover:bg-red-500 text-white px-3 py-2 rounded-lg text-sm transition-colors disabled:opacity-50">{deleting ? 'Suppression…' : 'Supprimer'}</button>
+        <button onClick={() => { setOpen(false); setConfirmName('') }} className="text-gray-500 hover:text-gray-900 px-3 py-2 rounded-lg text-sm transition-colors">Annuler</button>
+      </div>
     </div>
   )
 }
