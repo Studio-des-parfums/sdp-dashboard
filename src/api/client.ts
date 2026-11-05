@@ -40,7 +40,7 @@ export const api = {
       return rows.map((row) => {
         const mock = mockProjects.find((p) => p.slug === row.slug)
         return mock
-          ? { ...mock, id: row.id, status: row.status, user_permission: row.user_permission }
+          ? { ...mock, id: row.id, status: row.status, kind: row.kind, user_permission: row.user_permission }
           : { ...row, user_permission: row.user_permission }
       })
     } catch {
@@ -53,7 +53,8 @@ export const api = {
   async getDashboard(slug: string): Promise<Dashboard> {
     await delay(400)
     const normalized = slug === 'marketplace' ? 'aglae' : slug === 'analytics' ? 'lylo' : slug
-    const dashboard = mockDashboards[normalized]
+    // Espace Polux créé à la volée : même structure que le Polux principal.
+    const dashboard = mockDashboards[normalized] ?? (normalized.startsWith('polux-') ? { ...mockDashboards.polux, slug: normalized } : undefined)
     if (!dashboard) throw new Error('Dashboard not found')
     return dashboard
   },

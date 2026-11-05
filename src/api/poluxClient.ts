@@ -19,6 +19,29 @@ export interface PoluxNotification {
   message: string
   is_read: boolean
   created_at: string
+  /** Espace Polux de la tâche (absent en mode mock = 'polux'). */
+  workspace_slug?: string
+}
+
+// Espaces Polux : 'polux' (principal) et les espaces créés par un admin, de slug 'polux-<nom>'.
+export const MAIN_POLUX_WORKSPACE = 'polux'
+export function isPoluxSlug(slug: string | undefined | null): boolean {
+  return !!slug && (slug === MAIN_POLUX_WORKSPACE || slug.startsWith('polux-'))
+}
+
+// Espace courant, envoyé à polux-back (header x-polux-workspace) — fixé par DashboardView
+// selon le projet ouvert. En mode mock, un seul jeu de données partagé.
+let currentWorkspace = MAIN_POLUX_WORKSPACE
+export function setPoluxWorkspace(slug: string) {
+  currentWorkspace = slug
+}
+
+export interface PoluxWorkspace {
+  id: number
+  slug: string
+  name: string
+  color: string
+  created_at: string
 }
 
 // Backend dédié (polux-back), séparé de sdp-dashboard/server — même pattern que ninnoClient.ts.
@@ -48,6 +71,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const email = currentUserEmail()
   const headers = new Headers(options.headers)
   if (email) headers.set('x-user-email', email)
+  if (!headers.has('x-polux-workspace')) headers.set('x-polux-workspace', currentWorkspace)
   if (!(options.body instanceof FormData) && options.body) headers.set('Content-Type', 'application/json')
 
   const res = await fetch(`${API_URL}${path}`, { ...options, headers })
@@ -566,6 +590,17 @@ export const poluxApi = {
       return delay(interaction)
     }
     return request(`/leads/${leadId}/interactions`, { method: 'POST', body: JSON.stringify({ body }) })
+  },
+
+  // Espaces (admin) : liste, et création à partir d'un projet dashboard déjà créé (même slug).
+  async getWorkspaces(): Promise<PoluxWorkspace[]> {
+    if (USE_MOCK) return delay([{ id: 1, slug: MAIN_POLUX_WORKSPACE, name: 'Polux', color: '#6366f1', created_at: new Date().toISOString() }])
+    return request('/workspaces')
+  },
+
+  async createWorkspace(input: { slug: string; name: string; color: string; copy_teams_from: string | null }): Promise<PoluxWorkspace> {
+    if (USE_MOCK) return delay({ id: Date.now(), slug: input.slug, name: input.name, color: input.color, created_at: new Date().toISOString() })
+    return request('/workspaces', { method: 'POST', body: JSON.stringify(input) })
   },
 
   // Départ d'un utilisateur (admin) : travail encore en cours à transférer.

@@ -6,6 +6,8 @@ export interface Project {
   color: string
   status: 'active' | 'inactive' | 'maintenance'
   created_at: string
+  /** 'polux' pour un espace Polux (le principal et ceux créés à la volée). */
+  kind?: string | null
   /** Permission de l'utilisateur courant sur ce projet ('view' | 'edit' | 'admin'). Absent = mock/dev. */
   user_permission?: 'view' | 'edit' | 'admin'
 }

@@ -82,6 +82,13 @@ export const adminClient = {
   addNote: (projectId: number, content: string, type: string = 'info') =>
     request<ProjectNote>(`/projects/${projectId}/notes`, { method: 'POST', body: JSON.stringify({ content, type }) }),
 
+  // Espace Polux : projet dashboard (porte les accès) — l'espace Polux est créé ensuite par le front.
+  createPoluxWorkspace: (data: { name: string; color: string; description?: string }) =>
+    request<AdminProject>('/polux-workspaces', { method: 'POST', body: JSON.stringify(data) }),
+
+  deletePoluxWorkspace: (projectId: number) =>
+    request<void>(`/polux-workspaces/${projectId}`, { method: 'DELETE' }),
+
   deleteNote: (projectId: number, noteId: number) =>
     request<void>(`/projects/${projectId}/notes/${noteId}`, { method: 'DELETE' }),
 

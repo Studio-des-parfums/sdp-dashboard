@@ -19,7 +19,7 @@ import LyloRenderer from '../components/lylo/LyloRenderer'
 import NonoRenderer from '../components/nono/NonoRenderer'
 import PoluxRenderer from '../components/polux/PoluxRenderer'
 import { CreateTeamModal } from '../components/polux/CreateTeamModal'
-import { poluxApi } from '../api/poluxClient'
+import { poluxApi, isPoluxSlug, setPoluxWorkspace, MAIN_POLUX_WORKSPACE } from '../api/poluxClient'
 import HomePage from '../components/home/HomePage'
 import { mockUser, mockNotifications } from '../data/mockData'
 import { ticketsClient } from '../api/ticketsClient'
@@ -40,6 +40,9 @@ export function DashboardView() {
   // Rétrocompatibilité avec d'anciens liens utilisant les slugs pré-renommage (marketplace/analytics).
   const normalizedSlug = slug === 'marketplace' ? 'aglae' : slug === 'analytics' ? 'lylo' : slug
   const isHome = normalizedSlug === 'sdp-core'
+  // Espace Polux ciblé par toutes les requêtes Polux de cette page (hors espace : le principal).
+  // Fixé pendant le rendu pour précéder les effets des pages Polux enfants.
+  setPoluxWorkspace(isPoluxSlug(normalizedSlug) ? normalizedSlug! : MAIN_POLUX_WORKSPACE)
 
 
   const [dashboard, setDashboard] = useState<Dashboard | null>(null)
@@ -107,7 +110,7 @@ export function DashboardView() {
     const normalized = slug === 'marketplace' ? 'aglae' : slug === 'analytics' ? 'lylo' : slug
     api.getDashboard(slug)
       .then(async (d) => {
-        if (normalized === 'polux') {
+        if (isPoluxSlug(normalized)) {
           const isPoluxAdmin = sdpUser?.role_name === 'admin'
           const [teams, leadsAccessIds, currentPoluxUser] = await Promise.all([
             poluxApi.getTeams().catch(() => []),
@@ -180,7 +183,7 @@ export function DashboardView() {
   const isNinno = normalizedSlug === 'mobile-app'
   const isLylo = normalizedSlug === 'lylo'
   const isNono = normalizedSlug === 'nono'
-  const isPolux = normalizedSlug === 'polux'
+  const isPolux = isPoluxSlug(normalizedSlug)
   const isAdmin = normalizedSlug === 'admin-portal'
   const isOcrSection = isMarketplace && MARKETPLACE_OCR_SECTIONS.has(activeSection)
   const isNinnoAdminSection = isNinno && NINNO_ADMIN_SECTIONS.has(activeSection)

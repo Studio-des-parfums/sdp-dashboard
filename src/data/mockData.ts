@@ -17,7 +17,7 @@ export const mockProjects: Project[] = [
   { id: 4, name: 'Lylo', slug: 'lylo', description: 'Back-office Lylo', color: '#996f56', status: 'active', created_at: '2024-01-01T00:00:00Z' },
   { id: 5, name: 'Admin', slug: 'admin-portal', description: "Portail d'administration interne", color: '#8b5cf6', status: 'maintenance', created_at: '2024-01-01T00:00:00Z' },
   { id: 6, name: 'Nono', slug: 'nono', description: 'Backoffice du robot magasin', color: '#0ea5e9', status: 'active', created_at: '2024-01-01T00:00:00Z' },
-  { id: 7, name: 'Polux', slug: 'polux', description: 'Gestion de projets et de tâches', color: '#6366f1', status: 'active', created_at: '2024-01-01T00:00:00Z' },
+  { id: 7, name: 'Polux', slug: 'polux', kind: 'polux', description: 'Gestion de projets et de tâches', color: '#6366f1', status: 'active', created_at: '2024-01-01T00:00:00Z' },
 ]
 
 export const mockDashboards: Record<string, Dashboard> = {

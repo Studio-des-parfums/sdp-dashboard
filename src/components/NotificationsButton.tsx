@@ -17,6 +17,7 @@ interface BellItem {
   is_read: boolean
   created_at: string
   taskId?: number
+  workspaceSlug?: string
 }
 
 function relativeTime(iso: string) {
@@ -37,7 +38,7 @@ async function loadItems(): Promise<BellItem[]> {
   ])
   return [
     ...sdp.map((n): BellItem => ({ key: `sdp-${n.id}`, source: 'sdp', id: n.id, message: n.message, is_read: !!n.is_read, created_at: n.created_at })),
-    ...polux.map((n): BellItem => ({ key: `polux-${n.id}`, source: 'polux', id: n.id, message: n.message, is_read: !!n.is_read, created_at: n.created_at, taskId: n.task_id })),
+    ...polux.map((n): BellItem => ({ key: `polux-${n.id}`, source: 'polux', id: n.id, message: n.message, is_read: !!n.is_read, created_at: n.created_at, taskId: n.task_id, workspaceSlug: n.workspace_slug })),
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 }
 
@@ -107,7 +108,7 @@ export function NotificationsButton() {
     }
     if (item.taskId) {
       setOpen(false)
-      navigate(`/project/polux?section=accueil&task=${item.taskId}`)
+      navigate(`/project/${item.workspaceSlug ?? 'polux'}?section=accueil&task=${item.taskId}`)
     }
   }
 
