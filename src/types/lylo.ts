@@ -102,3 +102,88 @@ export interface LyloPrinter {
   protocol?: string
   printnode_id?: string | number
 }
+
+// --- Lylo Analytics Types ---
+
+export type LyloGranularity = 'day' | 'month' | 'year'
+
+export interface LyloCountPeriodItem {
+  period: string
+  count: number
+}
+
+export interface LyloFormulaCountResponse {
+  total: number
+  group_by: LyloGranularity
+  date_from: string | null
+  date_to: string | null
+  data: LyloCountPeriodItem[]
+}
+
+export interface LyloTopNoteItem {
+  note: string
+  category?: string | null
+  count: number
+  percentage: number
+}
+
+export interface LyloTopNotesResponse {
+  total_formulas: number
+  category: string
+  limit: number
+  data: LyloTopNoteItem[]
+}
+
+export interface LyloProfileStatItem {
+  profile: string
+  count: number
+  percentage: number
+}
+
+export interface LyloProfilesResponse {
+  total: number
+  data: LyloProfileStatItem[]
+}
+
+export interface LyloLanguageStatItem {
+  language: string
+  count: number
+  percentage: number
+}
+
+export interface LyloLanguagesResponse {
+  total: number
+  data: LyloLanguageStatItem[]
+}
+
+export interface LyloModeStatItem {
+  mode: string
+  count: number
+  percentage: number
+}
+
+export interface LyloModesResponse {
+  total: number
+  data: LyloModeStatItem[]
+}
+
+export interface LyloFormulaTypeStatItem {
+  formula_type: string
+  count: number
+  percentage: number
+}
+
+export interface LyloFormulaTypesResponse {
+  total: number
+  data: LyloFormulaTypeStatItem[]
+}
+
+export interface LyloAnalyticsSummaryResponse {
+  total_formulas: number
+  profiles: LyloProfileStatItem[]
+  modes: LyloModeStatItem[]
+  top_notes: LyloTopNoteItem[]
+  formula_types: LyloFormulaTypeStatItem[]
+  languages?: LyloLanguageStatItem[]
+}
+
