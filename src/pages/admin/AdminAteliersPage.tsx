@@ -20,7 +20,7 @@ type Atelier = {
   coffret_id: number
   description: string | null
   image_url: string | null
-  volume_ml: number | null
+  volume_options: number[]
   is_active: boolean
   translations: Record<string, string>
 }
@@ -39,8 +39,16 @@ function emptyForm() {
     translations: Object.fromEntries(LANGUAGES.map((l) => [l.code, ''])) as Record<string, string>,
     coffret_id: 0,
     description: '',
-    volume_ml: '',
+    volume_options: '',
   }
+}
+
+// Saisie libre « 10, 30, 50 » vers la liste de volumes envoyée à l'API.
+function parseVolumes(value: string): number[] {
+  return value
+    .split(/[,;\s]+/)
+    .map((v) => Number(v.replace(',', '.')))
+    .filter((v) => Number.isFinite(v) && v > 0)
 }
 
 function displayName(atelier: Atelier): string {
@@ -126,14 +134,11 @@ function AtelierFormFields({
           </select>
         </div>
         <div>
-          <label className="text-xs text-gray-600 mb-1 block">Quantité (ml)</label>
+          <label className="text-xs text-gray-600 mb-1 block">Formats (ml), séparés par des virgules</label>
           <input
-            type="number"
-            min="0"
-            step="0.1"
-            value={form.volume_ml}
-            onChange={(e) => setForm({ ...form, volume_ml: e.target.value })}
-            placeholder="Ex : 30"
+            value={form.volume_options}
+            onChange={(e) => setForm({ ...form, volume_options: e.target.value })}
+            placeholder="Ex : 10, 30, 50"
             className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900"
           />
         </div>
@@ -215,7 +220,7 @@ export default function AdminAteliersPage() {
           translations: nonEmptyTranslations(createForm.translations),
           coffret_id: createForm.coffret_id,
           description: createForm.description.trim() || null,
-          volume_ml: createForm.volume_ml.trim() ? Number(createForm.volume_ml) : null,
+          volume_options: parseVolumes(createForm.volume_options),
         }),
       })
       setIsCreateOpen(false)
@@ -234,7 +239,7 @@ export default function AdminAteliersPage() {
       translations: { ...Object.fromEntries(LANGUAGES.map((l) => [l.code, ''])), ...atelier.translations },
       coffret_id: atelier.coffret_id,
       description: atelier.description ?? '',
-      volume_ml: atelier.volume_ml != null ? String(atelier.volume_ml) : '',
+      volume_options: atelier.volume_options.join(', '),
     })
   }
 
@@ -248,7 +253,7 @@ export default function AdminAteliersPage() {
           translations: nonEmptyTranslations(editForm.translations),
           coffret_id: editForm.coffret_id,
           description: editForm.description.trim() || null,
-          volume_ml: editForm.volume_ml.trim() ? Number(editForm.volume_ml) : null,
+          volume_options: parseVolumes(editForm.volume_options),
           is_active: selected.is_active,
         }),
       })
@@ -383,7 +388,7 @@ export default function AdminAteliersPage() {
                     {coffretsById.get(atelier.coffret_id) ? coffretName(coffretsById.get(atelier.coffret_id)!) : '—'}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600">
-                    {atelier.volume_ml != null ? `${atelier.volume_ml} ml` : '—'}
+                    {atelier.volume_options.length > 0 ? `${atelier.volume_options.join(' / ')} ml` : '—'}
                   </td>
                   <td className="px-4 py-3">
                     <button
