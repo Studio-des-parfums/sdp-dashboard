@@ -156,6 +156,12 @@ export interface ChecklistStepMeta {
   priority?: PoluxTask['priority'] | null
 }
 
+export interface PoluxUserOpenWork {
+  tasks: Array<{ id: number; title: string }>
+  managed_teams: Array<{ id: number; name: string }>
+  open_leads_count: number
+}
+
 export const poluxApi = {
   async getTeams(): Promise<PoluxTeam[]> {
     if (USE_MOCK) return delay([...teams])
@@ -560,5 +566,30 @@ export const poluxApi = {
       return delay(interaction)
     }
     return request(`/leads/${leadId}/interactions`, { method: 'POST', body: JSON.stringify({ body }) })
+  },
+
+  // Départ d'un utilisateur (admin) : travail encore en cours à transférer.
+  async getUserOpenWork(userId: number): Promise<PoluxUserOpenWork> {
+    if (USE_MOCK) {
+      const open = tasks.filter((t) => t.status !== 'termine' && t.assigned_to_ids.includes(userId))
+      return delay({ tasks: open.map((t) => ({ id: t.id, title: t.title })), managed_teams: [], open_leads_count: 0 })
+    }
+    return request(`/users/${userId}/open-work`)
+  },
+
+  // Transfère tâches non terminées, leads ouverts et équipes gérées à `toUserId`. L'historique
+  // (créateur, commentaires, tâches terminées) reste au nom de la personne partie.
+  async transferUserWork(userId: number, toUserId: number): Promise<{ transferred_tasks: number; transferred_leads: number }> {
+    if (USE_MOCK) {
+      let count = 0
+      tasks = tasks.map((t) => {
+        if (t.status === 'termine' || !t.assigned_to_ids.includes(userId)) return t
+        count++
+        const ids = t.assigned_to_ids.filter((id) => id !== userId)
+        return { ...t, assigned_to_ids: ids.includes(toUserId) ? ids : [...ids, toUserId] }
+      })
+      return delay({ transferred_tasks: count, transferred_leads: 0 })
+    }
+    return request(`/users/${userId}/transfer`, { method: 'POST', body: JSON.stringify({ to_user_id: toUserId }) })
   },
 }

@@ -7,6 +7,7 @@ import { poluxApi } from '../../api/poluxClient'
 import type { PoluxLead, PoluxUserRef } from '../../types/polux'
 import { LEAD_CONTACT_TYPE_LABEL, LEAD_STATUS_LABEL, formatLeadDate } from './leadStatus'
 import { toDateInputValue } from './priority'
+import { selectableUsers, userFullName } from './userLabel'
 
 interface LeadDetailModalProps {
   lead: PoluxLead | null
@@ -143,7 +144,7 @@ export function LeadDetailModal({ lead, users, onClose, onUpdated, onDeleted }: 
               className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
             >
               <option value="">Non assigné</option>
-              {users.map((u) => <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
+              {selectableUsers(users, [lead.assigned_to_id]).map((u) => <option key={u.id} value={u.id}>{userFullName(u)}</option>)}
             </select>
           </div>
         </div>

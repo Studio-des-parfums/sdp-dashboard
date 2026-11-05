@@ -4,6 +4,7 @@ import { Label } from '../ui/lylo/Label'
 import { Modal } from '../ui/lylo/Modal'
 import { poluxApi } from '../../api/poluxClient'
 import type { PoluxUserRef } from '../../types/polux'
+import { userFullName } from './userLabel'
 
 interface TeamMembersModalProps {
   open: boolean
@@ -64,7 +65,7 @@ export function TeamMembersModal({ open, teamId, members, candidates, onClose, o
           <div className="space-y-1 max-h-56 overflow-y-auto">
             {members.map((m) => (
               <div key={m.id} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2">
-                <span className="text-sm text-gray-900">{m.first_name} {m.last_name}</span>
+                <span className="text-sm text-gray-900">{userFullName(m)}</span>
                 <button
                   type="button"
                   onClick={() => handleRemove(m.id)}

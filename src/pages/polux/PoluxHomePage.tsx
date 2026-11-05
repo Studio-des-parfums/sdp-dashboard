@@ -12,6 +12,7 @@ import { CreateTaskModal } from '../../components/polux/CreateTaskModal'
 import { Button } from '../../components/ui/lylo/Button'
 import { useAuth } from '../../contexts/AuthContext'
 import { isOverdue } from '../../components/polux/priority'
+import { userFullName } from '../../components/polux/userLabel'
 
 // Section repliable de "Mon espace" ; l'état ouvert/fermé est mémorisé dans ce navigateur.
 function useCollapsed(key: string): [boolean, () => void] {
@@ -229,7 +230,7 @@ export default function PoluxHomePage({ onOpenTeam, isAdmin = false }: PoluxHome
                     {team.is_official && <p className="text-[11px] font-medium text-indigo-600">Officielle</p>}
                     {team.manager_user_id != null && (() => {
                       const manager = users.find((u) => u.id === team.manager_user_id)
-                      return manager ? <p className="text-[11px] text-gray-500">Resp. {manager.first_name} {manager.last_name}</p> : null
+                      return manager ? <p className="text-[11px] text-gray-500">Resp. {userFullName(manager)}</p> : null
                     })()}
                   </div>
                 </div>

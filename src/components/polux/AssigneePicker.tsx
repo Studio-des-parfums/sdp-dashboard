@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { UserPlus, Users } from 'lucide-react'
 import type { PoluxTeam, PoluxUserRef } from '../../types/polux'
 import { useAuth } from '../../contexts/AuthContext'
-import { currentUserFirst, userDisplayName } from './userLabel'
+import { currentUserFirst, userDisplayName, selectableUsers } from './userLabel'
 import { FloatingPanel } from './FloatingPanel'
 import { stepIconButtonClass } from './StepMetaControls'
 
@@ -26,7 +26,7 @@ export function AssigneePicker({ users, selectedIds, onChange, teams, selectedTe
   const { sdpUser } = useAuth()
   const [open, setOpen] = useState(false)
   const anchorRef = useRef<HTMLButtonElement | null>(null)
-  const orderedUsers = currentUserFirst(users, sdpUser?.email)
+  const orderedUsers = currentUserFirst(selectableUsers(users, selectedIds), sdpUser?.email)
   const selected = orderedUsers.filter((u) => selectedIds.includes(u.id))
   const selectedTeam = teams?.find((t) => t.id === selectedTeamId) ?? null
   const summary = [...(selectedTeam ? [selectedTeam.name] : []), ...selected.map((u) => userDisplayName(u, sdpUser?.email))]

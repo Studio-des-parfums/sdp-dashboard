@@ -3,7 +3,7 @@ import { BarChart3, Shield, Plus, Trash2, Save, Settings, Mail, RotateCw, X as X
 import { adminClient, type AdminProject, type ProjectNote, type AdminUser, type AdminRole, type UserProject } from '../api/adminClient'
 import { ticketsClient, type Ticket, type TicketStatus } from '../api/ticketsClient'
 import { api } from '../api/client'
-import { poluxApi } from '../api/poluxClient'
+import { poluxApi, type PoluxUserOpenWork } from '../api/poluxClient'
 import type { PoluxTeam } from '../types/polux'
 import { useToast } from '../components/ui/Toast'
 import type { Project } from '../types'
@@ -260,6 +260,7 @@ function UsersTab() {
 
   const openUser = async (u: AdminUser) => {
     setSelectedUser(u)
+    setDeparture(null)
     setEditing(false)
     setEditData({ ...u })
     const up = await adminClient.getUserProjects(u.id)
@@ -329,14 +330,44 @@ function UsersTab() {
     }
   }
 
-  const remove = async (id: number) => {
+  // Départ d'un utilisateur : on montre son travail Polux en cours, on le transfère à un
+  // successeur, puis on désactive le compte (jamais supprimé, pour garder l'historique).
+  const [departure, setDeparture] = useState<{ work: PoluxUserOpenWork | null; toUserId: number | null; error: string | null } | null>(null)
+
+  const startDeparture = async (id: number) => {
+    setDeparture({ work: null, toUserId: null, error: null })
     try {
-      await adminClient.deleteUser(id)
-      setUsers(prev => prev.filter(u => u.id !== id))
-      setSelectedUser(null)
-      showSuccess('Utilisateur supprimé')
+      const work = await poluxApi.getUserOpenWork(id)
+      setDeparture({ work, toUserId: null, error: null })
     } catch (err: any) {
-      showError('Échec de la suppression', err.message)
+      setDeparture({ work: null, toUserId: null, error: err.message })
+    }
+  }
+
+  const confirmDeparture = async (id: number) => {
+    if (!departure) return
+    const work = departure.work
+    const hasOpenWork = !!work && (work.tasks.length > 0 || work.managed_teams.length > 0 || work.open_leads_count > 0)
+    if (hasOpenWork && !departure.toUserId) {
+      showError('Successeur requis', 'Choisissez à qui transférer le travail en cours.')
+      return
+    }
+    setSaving(true)
+    try {
+      let transferred = ''
+      if (hasOpenWork && departure.toUserId) {
+        const result = await poluxApi.transferUserWork(id, departure.toUserId)
+        transferred = `${result.transferred_tasks} tâche(s) et ${result.transferred_leads} lead(s) transférés`
+      }
+      await adminClient.deleteUser(id)
+      setUsers(prev => prev.map(u => u.id === id ? { ...u, is_active: false, team_slugs: [] } : u))
+      setSelectedUser(null)
+      setDeparture(null)
+      showSuccess('Départ enregistré', transferred || 'Compte désactivé, historique conservé')
+    } catch (err: any) {
+      showError('Échec du départ', err.message)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -542,10 +573,49 @@ function UsersTab() {
                   <button onClick={() => setEditing(true)} className="flex items-center gap-1.5 bg-white hover:bg-gray-200 text-gray-900 px-4 py-2 rounded-lg text-sm transition-colors"><Settings size={14} /> Modifier</button>
                   <button onClick={() => resetPwd(selectedUser.email)} className="flex items-center gap-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-600 px-4 py-2 rounded-lg text-sm transition-colors"><RotateCw size={14} /> Réinitialiser mot de passe</button>
                   <a href={`mailto:${selectedUser.email}`} className="flex items-center gap-1.5 bg-white hover:bg-gray-200 text-gray-900 px-4 py-2 rounded-lg text-sm transition-colors"><Mail size={14} /> Envoyer un email</a>
-                  <button onClick={() => remove(selectedUser.id)} className="flex items-center gap-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-700 px-4 py-2 rounded-lg text-sm transition-colors ml-auto"><Trash2 size={14} /> Supprimer</button>
+                  {selectedUser.is_active && (
+                    <button onClick={() => startDeparture(selectedUser.id)} className="flex items-center gap-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-700 px-4 py-2 rounded-lg text-sm transition-colors ml-auto"><Trash2 size={14} /> Départ</button>
+                  )}
                 </>
               )}
             </div>
+
+            {departure && !editing && (
+              <div className="mt-3 space-y-3 rounded-lg border border-red-200 bg-red-50/50 p-4 text-sm">
+                <p className="font-medium text-gray-900">Départ de {selectedUser.first_name} {selectedUser.last_name}</p>
+                <p className="text-gray-600">Le compte sera désactivé (plus de connexion). Ses tâches terminées, commentaires et créations restent à son nom.</p>
+                {departure.error && <p className="text-red-700">Polux injoignable : {departure.error}</p>}
+                {!departure.work && !departure.error && <p className="text-gray-500">Chargement du travail en cours…</p>}
+                {departure.work && (
+                  departure.work.tasks.length === 0 && departure.work.managed_teams.length === 0 && departure.work.open_leads_count === 0 ? (
+                    <p className="text-gray-700">Aucun travail en cours à transférer.</p>
+                  ) : (
+                    <>
+                      <ul className="list-disc pl-5 text-gray-700">
+                        {departure.work.tasks.length > 0 && <li>{departure.work.tasks.length} tâche(s) non terminée(s) : {departure.work.tasks.slice(0, 5).map(t => t.title).join(', ')}{departure.work.tasks.length > 5 ? '…' : ''}</li>}
+                        {departure.work.managed_teams.length > 0 && <li>Responsable de : {departure.work.managed_teams.map(t => t.name).join(', ')}</li>}
+                        {departure.work.open_leads_count > 0 && <li>{departure.work.open_leads_count} lead(s) en cours</li>}
+                      </ul>
+                      <label className="block">
+                        <span className="text-gray-600">Transférer à</span>
+                        <select
+                          value={departure.toUserId ?? ''}
+                          onChange={e => setDeparture(d => d && { ...d, toUserId: e.target.value ? Number(e.target.value) : null })}
+                          className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+                        >
+                          <option value="">Choisir un successeur…</option>
+                          {users.filter(u => u.is_active && u.id !== selectedUser.id).map(u => <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
+                        </select>
+                      </label>
+                    </>
+                  )
+                )}
+                <div className="flex gap-2">
+                  <button onClick={() => confirmDeparture(selectedUser.id)} disabled={saving || !departure.work} className="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50">{saving ? 'En cours…' : 'Confirmer le départ'}</button>
+                  <button onClick={() => setDeparture(null)} className="text-gray-500 hover:text-gray-900 px-4 py-2 rounded-lg text-sm transition-colors">Annuler</button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

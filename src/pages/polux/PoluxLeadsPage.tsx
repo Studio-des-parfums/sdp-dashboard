@@ -6,6 +6,7 @@ import { Input } from '../../components/ui/lylo/Input'
 import { LeadDetailModal } from '../../components/polux/LeadDetailModal'
 import { LeadsAccessModal } from '../../components/polux/LeadsAccessModal'
 import { LEAD_CONTACT_TYPE_LABEL, LEAD_STATUS_CLASS, LEAD_STATUS_LABEL, formatLeadDate, isLeadFollowUpDue } from '../../components/polux/leadStatus'
+import { isFormerUser, userFullName } from '../../components/polux/userLabel'
 
 interface PoluxLeadsPageProps {
   onCreateLead: () => void
@@ -38,7 +39,7 @@ export default function PoluxLeadsPage({ onCreateLead, canManageAccess }: PoluxL
   }, [])
 
   const accessMembers = useMemo(() => users.filter((u) => accessIds.includes(u.id)), [users, accessIds])
-  const accessCandidates = useMemo(() => users.filter((u) => !accessIds.includes(u.id)), [users, accessIds])
+  const accessCandidates = useMemo(() => users.filter((u) => !isFormerUser(u) && !accessIds.includes(u.id)), [users, accessIds])
 
   function handleUpdated(updated: PoluxLead) {
     setLeads((prev) => prev.map((l) => (l.id === updated.id ? updated : l)))
@@ -77,7 +78,7 @@ export default function PoluxLeadsPage({ onCreateLead, canManageAccess }: PoluxL
   function userName(id: number | null) {
     if (!id) return 'Non assigné'
     const u = users.find((user) => user.id === id)
-    return u ? `${u.first_name} ${u.last_name}` : 'Non assigné'
+    return u ? userFullName(u) : 'Non assigné'
   }
 
   if (loading) return <div className="text-sm text-gray-500">Chargement...</div>
@@ -137,7 +138,7 @@ export default function PoluxLeadsPage({ onCreateLead, canManageAccess }: PoluxL
           className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
         >
           <option value="tous">Tous les assignés</option>
-          {users.map((u) => <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
+          {users.map((u) => <option key={u.id} value={u.id}>{userFullName(u)}</option>)}
         </select>
         <select
           value={projectFilter}

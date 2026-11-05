@@ -10,6 +10,7 @@ import { TeamMembersModal } from '../../components/polux/TeamMembersModal'
 import { CompletedTasksModal } from '../../components/polux/CompletedTasksModal'
 import { Button } from '../../components/ui/lylo/Button'
 import { Input } from '../../components/ui/lylo/Input'
+import { isFormerUser, userFullName } from '../../components/polux/userLabel'
 
 function defaultExtendedDate(): string {
   const d = new Date()
@@ -41,7 +42,7 @@ export default function PoluxTeamPage({ teamSlug, isAdmin = false, onDeleted }: 
   const teamTasks = useMemo(() => team ? tasksForTeam(tasks, team) : [], [tasks, team])
   const activeTeamTasks = useMemo(() => teamTasks.filter((t) => t.status !== 'termine'), [teamTasks])
   const teamMembers = useMemo(() => team ? users.filter((u) => team.member_ids.includes(u.id)) : [], [users, team])
-  const nonMembers = useMemo(() => team ? users.filter((u) => !team.member_ids.includes(u.id)) : [], [users, team])
+  const nonMembers = useMemo(() => team ? users.filter((u) => !isFormerUser(u) && !team.member_ids.includes(u.id)) : [], [users, team])
   // Projets déjà renseignés et encore en cours (au moins une tâche non terminée) — proposés
   // dans le select "Projet" des formulaires de tâche, sans empêcher d'en taper un nouveau.
   const activeProjects = useMemo(
@@ -140,7 +141,7 @@ export default function PoluxTeamPage({ teamSlug, isAdmin = false, onDeleted }: 
                   className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${m.id === team.manager_user_id ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700'}`}
                   title={m.id === team.manager_user_id ? "Responsable de l'équipe" : undefined}
                 >
-                  {m.first_name} {m.last_name}
+                  {userFullName(m)}
                   {m.id === team.manager_user_id && <span className="ml-1 opacity-80">· Responsable</span>}
                 </span>
               ))}

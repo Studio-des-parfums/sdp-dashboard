@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import type { PoluxUserRef } from '../../types/polux'
 import { FloatingPanel } from './FloatingPanel'
+import { isFormerUser } from './userLabel'
 
 const ASSIGNED_LABEL = 'Personnes assignées'
 
@@ -25,7 +26,7 @@ export function MentionInput({ value, onChange, users, placeholder, onMentionAdd
   const userSuggestions = useMemo(() => {
     if (query === null) return []
     const q = query.toLowerCase()
-    return users.filter((u) => `${u.first_name} ${u.last_name}`.toLowerCase().includes(q)).slice(0, 5)
+    return users.filter((u) => !isFormerUser(u) && `${u.first_name} ${u.last_name}`.toLowerCase().includes(q)).slice(0, 5)
   }, [query, users])
 
   const showAssignedSuggestion = query !== null && onAssignedMentionAdded && ASSIGNED_LABEL.toLowerCase().includes(query.toLowerCase())

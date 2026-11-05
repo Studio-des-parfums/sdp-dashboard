@@ -6,6 +6,8 @@ export interface PoluxUserRef {
   first_name: string
   last_name: string
   email: string
+  /** false = ancien membre : conservé pour l'historique, plus proposé à l'assignation. */
+  is_active?: boolean
 }
 
 export interface PoluxTeam {
