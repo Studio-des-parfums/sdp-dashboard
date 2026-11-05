@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Activity, ChevronDown, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Plus } from 'lucide-react'
+import { ArrowLeft, Activity, ChevronDown, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Plus, Users } from 'lucide-react'
 import { api } from '../api/client'
 import { Sidebar } from '../components/Sidebar'
 import AdminPage from './AdminPage'
@@ -20,6 +20,7 @@ import NonoRenderer from '../components/nono/NonoRenderer'
 import PoluxRenderer from '../components/polux/PoluxRenderer'
 import { CreateTeamModal } from '../components/polux/CreateTeamModal'
 import { NewWorkspaceButton } from '../components/polux/NewWorkspaceButton'
+import { ManageWorkspaceTeamsModal } from '../components/polux/ManageWorkspaceTeamsModal'
 import { poluxApi, isPoluxSlug, setPoluxWorkspace, MAIN_POLUX_WORKSPACE } from '../api/poluxClient'
 import HomePage from '../components/home/HomePage'
 import { mockUser, mockNotifications } from '../data/mockData'
@@ -84,6 +85,9 @@ export function DashboardView() {
 
   const [selectOpen, setSelectOpen] = useState(false)
   const [workspaceSelectOpen, setWorkspaceSelectOpen] = useState(false)
+  const [manageTeamsOpen, setManageTeamsOpen] = useState(false)
+  // Incrémenté pour recharger le dashboard (sections d'équipes) après un changement d'équipes.
+  const [reloadKey, setReloadKey] = useState(0)
   const [createTeamOpen, setCreateTeamOpen] = useState(false)
 
 
@@ -138,7 +142,7 @@ export function DashboardView() {
       .catch(() => setError('Impossible de charger le dashboard'))
       .finally(() => setLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, isHome, sdpUser?.role_name])
+  }, [slug, isHome, sdpUser?.role_name, reloadKey])
 
   // Une fois la liste des projets autorisés chargée, on vérifie que le projet demandé
   // (autre que l'accueil, toujours accessible) en fait bien partie.
@@ -296,6 +300,9 @@ export function DashboardView() {
                     ))}
                     {isSdpAdmin && (
                       <div className="border-t border-gray-200 mt-1 pt-1">
+                        <button onClick={() => { setWorkspaceSelectOpen(false); setManageTeamsOpen(true) }} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left text-gray-600 hover:bg-gray-200 transition-colors">
+                          <Users size={12} /> Gérer les équipes de l'espace
+                        </button>
                         <NewWorkspaceButton
                           projects={projects}
                           onCreated={(p) => { setProjects((prev) => [...prev, p]); setWorkspaceSelectOpen(false); switchProject(p.slug) }}
@@ -504,6 +511,15 @@ export function DashboardView() {
         </div>
       </main>
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      {isPolux && currentWorkspace && (
+        <ManageWorkspaceTeamsModal
+          open={manageTeamsOpen}
+          workspace={currentWorkspace}
+          workspaces={poluxWorkspaces}
+          onClose={() => setManageTeamsOpen(false)}
+          onChanged={() => setReloadKey((k) => k + 1)}
+        />
+      )}
       {isPolux && (
         <CreateTeamModal
           open={createTeamOpen}

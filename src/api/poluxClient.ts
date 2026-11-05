@@ -609,6 +609,12 @@ export const poluxApi = {
     return request('/workspaces', { method: 'POST', body: JSON.stringify(input) })
   },
 
+  // Reprendre après coup des équipes d'un autre espace (copies indépendantes).
+  async importTeams(targetSlug: string, fromSlug: string, teamIds: number[]): Promise<{ copied: number; skipped: number }> {
+    if (USE_MOCK) return delay({ copied: 0, skipped: teamIds.length })
+    return request(`/workspaces/${targetSlug}/import-teams`, { method: 'POST', body: JSON.stringify({ from: fromSlug, team_ids: teamIds }) })
+  },
+
   async deleteWorkspace(slug: string): Promise<void> {
     if (USE_MOCK) return delay(undefined)
     await request(`/workspaces/${slug}`, { method: 'DELETE' })
